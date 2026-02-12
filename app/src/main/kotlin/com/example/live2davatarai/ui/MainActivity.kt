@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.live2davatarai.audio.AudioAnalyzer
 import com.example.live2davatarai.audio.SpeechInputManager
 import com.example.live2davatarai.audio.TTSManager
 import com.example.live2davatarai.data.ConversationManager
