@@ -52,10 +52,6 @@ class AvatarController {
         
         // Handle Lip-Sync
         if (currentState == AvatarState.SPEAKING) {
-            // Procedural Lip-Sync: Move mouth in a natural way while speaking
-            val sineVal = kotlin.math.sin(now / 80.0).toFloat()
-            targetMouthY = (sineVal * 0.8f).coerceIn(0f, 1.0f)
-            
             // Viseme Mapping: Vary mouth shape (smiling vs wide) to mimic phonemes
             mouthForm = kotlin.math.cos(now / 120.0).toFloat() // Oscillate shape
             

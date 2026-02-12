@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 class GeminiClient(private val apiKey: String) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
     fun streamResponse(
@@ -24,7 +24,6 @@ class GeminiClient(private val apiKey: String) {
     ) {
         // OpenAI Endpoint and Model
         val url = "https://api.openai.com/v1/chat/completions"
-        // Using exactly what was requested: GPT-4.1 nano
         val model = "gpt-4.1-nano" 
         
         Log.d("AiClient", "Requesting OpenAI ($model)...")
@@ -82,24 +81,34 @@ class GeminiClient(private val apiKey: String) {
 
                 val source = response.body?.source() ?: return
                 try {
+                    Log.d("AiClient", "Stream started")
                     while (!source.exhausted()) {
                         val line = source.readUtf8Line() ?: break
+                        Log.v("AiClient", "Line: $line")
                         if (line.startsWith("data: ")) {
                             val data = line.substring(6).trim()
-                            if (data == "[DONE]") break
+                            if (data == "[DONE]") {
+                                Log.d("AiClient", "Stream [DONE] received")
+                                break
+                            }
                             if (data.isEmpty()) continue
                             
-                            val json = JSONObject(data)
-                            val choices = json.optJSONArray("choices")
-                            if (choices != null && choices.length() > 0) {
-                                val delta = choices.getJSONObject(0).optJSONObject("delta")
-                                val content = delta?.optString("content") ?: ""
-                                if (content.isNotEmpty()) {
-                                    onTokenReceived(content)
+                            try {
+                                val json = JSONObject(data)
+                                val choices = json.optJSONArray("choices")
+                                if (choices != null && choices.length() > 0) {
+                                    val delta = choices.getJSONObject(0).optJSONObject("delta")
+                                    val content = delta?.optString("content") ?: ""
+                                    if (content.isNotEmpty()) {
+                                        onTokenReceived(content)
+                                    }
                                 }
+                            } catch (e: Exception) {
+                                Log.w("AiClient", "JSON Parse Error: ${e.message}")
                             }
                         }
                     }
+                    Log.d("AiClient", "Stream completed naturally")
                     onComplete()
                 } catch (e: Exception) {
                     Log.e("AiClient", "Stream Parsing Error", e)

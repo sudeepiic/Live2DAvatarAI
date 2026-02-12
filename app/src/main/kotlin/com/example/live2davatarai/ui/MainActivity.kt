@@ -11,7 +11,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.live2davatarai.audio.AudioAnalyzer
 import com.example.live2davatarai.audio.SpeechInputManager
-import com.example.live2davatarai.audio.TTSManager
+import com.example.live2davatarai.audio.DeepgramStreamingTTSManager
 import com.example.live2davatarai.data.ConversationManager
 import com.example.live2davatarai.databinding.ActivityMainBinding
 import com.example.live2davatarai.engine.AvatarController
@@ -23,7 +23,7 @@ import com.live2d.demo.JniBridgeJava
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var speechInputManager: SpeechInputManager? = null
-    private var ttsManager: TTSManager? = null
+    private var ttsManager: DeepgramStreamingTTSManager? = null
     private var geminiClient: GeminiClient? = null
     private lateinit var conversationManager: ConversationManager
     private lateinit var avatarController: AvatarController
@@ -31,8 +31,10 @@ class MainActivity : AppCompatActivity() {
 
     private val PERMISSION_REQUEST_CODE = 100
     private var isListening = false
-    
-    private val API_KEY = "YOUR_API_KEY_HERE"
+
+    // API Keys - Deepgram for TTS, OpenAI for AI responses
+    private val DEEPGRAM_API_KEY = "REDACTED"
+    private val OPENAI_API_KEY = "REDACTED"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         avatarController = AvatarController()
         binding.avatarSurfaceView.setController(avatarController)
         conversationManager = ConversationManager()
-        geminiClient = GeminiClient(API_KEY)
+        geminiClient = GeminiClient(OPENAI_API_KEY) // OpenAI API for AI responses
 
         setupListeners()
         checkPermissionsAndInit()
@@ -67,7 +69,12 @@ class MainActivity : AppCompatActivity() {
         if (isListening) {
             speechInputManager?.stopListening()
         } else {
+            // Stop any ongoing speech immediately to prevent self-hearing (bleeding)
             ttsManager?.stop()
+            
+            // Pre-warm the TTS connection
+            ttsManager?.connect()
+            
             speechInputManager?.startListening()
             avatarController.updateState(AvatarState.LISTENING)
             binding.statusText.text = "Listening..."
@@ -84,17 +91,22 @@ class MainActivity : AppCompatActivity() {
     private fun initPermissionDependentModules() {
         if (ttsManager != null) return
         try {
-            audioAnalyzer = AudioAnalyzer { amplitude -> avatarController.setSpeechAmplitude(amplitude) }
-            audioAnalyzer?.start()
-            ttsManager = TTSManager(this) {
+            ttsManager = DeepgramStreamingTTSManager(this, DEEPGRAM_API_KEY) {
                 runOnUiThread {
                     avatarController.updateState(AvatarState.IDLE)
                     binding.statusText.text = "Idle"
                 }
             }
+            audioAnalyzer = AudioAnalyzer { amplitude -> avatarController.setSpeechAmplitude(amplitude) }
+            audioAnalyzer?.start(ttsManager?.getAudioSessionId() ?: 0)
+            
             speechInputManager = SpeechInputManager(this,
                 onPartialResult = { partial -> runOnUiThread { binding.statusText.text = "Listening: $partial" } },
-                onFinalResult = { final -> handleUserInput(final) },
+                onFinalResult = { final ->
+                    // Stop TTS when user speaks
+                    ttsManager?.stop()
+                    handleUserInput(final)
+                },
                 onError = { error -> runOnUiThread { 
                     binding.statusText.text = "Error: $error"
                     avatarController.updateState(AvatarState.IDLE)
@@ -118,7 +130,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         binding.settingsButton.setOnClickListener {
-            Toast.makeText(this, "API Key is hardcoded.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Using Deepgram TTS + OpenAI API", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -134,38 +146,47 @@ class MainActivity : AppCompatActivity() {
         var sentenceBuffer = StringBuilder()
         var isTagFound = false
 
+        // CRITICAL: Force state to SPEAKING immediately and don't let it flicker
+        runOnUiThread {
+            avatarController.updateState(AvatarState.SPEAKING)
+            binding.statusText.text = "Thinking..."
+        }
+        ttsManager?.startStream()
+        
+        // Update analyzer with the fresh session ID (since AudioTrack is recreated)
+        audioAnalyzer?.stop()
+        audioAnalyzer?.start(ttsManager?.getAudioSessionId() ?: 0)
+
         geminiClient?.streamResponse(
             systemInstruction = conversationManager.systemInstruction,
             history = conversationManager.getHistoryJson(),
             onTokenReceived = { token ->
                 fullResponse.append(token)
-                if (fullResponse.startsWith("[") && fullResponse.contains("]")) {
-                    val tagEnd = fullResponse.indexOf("]")
-                    if (!isTagFound) {
-                        val tag = fullResponse.substring(1, tagEnd).uppercase()
-                        try {
-                            val expression = AvatarExpression.valueOf(tag)
-                            runOnUiThread { avatarController.setExpression(expression) }
-                        } catch (e: Exception) {}
-                        isTagFound = true
-                    }
-                    if (token.contains("]")) {
-                        sentenceBuffer.append(token.substring(token.indexOf("]") + 1))
-                    } else if (isTagFound) {
-                        sentenceBuffer.append(token)
-                    }
-                } else if (!fullResponse.startsWith("[")) {
-                    sentenceBuffer.append(token)
-                }
                 
-                if (token.contains(".") || token.contains("!") || token.contains("?")) {
-                    val sentence = sentenceBuffer.toString().trim().replace(Regex("\\[.*?\\]"), "").replace(Regex("\\*.*?\\*"), "")
+                if (!isTagFound && fullResponse.contains("[") && fullResponse.contains("]")) {
+                    val start = fullResponse.indexOf("[")
+                    val end = fullResponse.indexOf("]")
+                    val tag = fullResponse.substring(start + 1, end).uppercase()
+                    try {
+                        val expression = AvatarExpression.valueOf(tag)
+                        runOnUiThread { avatarController.setExpression(expression) }
+                    } catch (e: Exception) {}
+                    isTagFound = true
+                }
+
+                sentenceBuffer.append(token)
+                val currentText = sentenceBuffer.toString()
+                
+                // Stream faster: send text as soon as we have a clause or sentence
+                if (currentText.contains(Regex("[,.!?]\\s")) || currentText.contains(Regex("[.!?]$"))) {
+                    val sentence = currentText.trim()
+                        .replace(Regex("\\[.*?\\]"), "")
+                        .replace(Regex("\\*.*?\\*"), "")
+                        .trim()
+                        
                     if (sentence.isNotEmpty()) {
                         runOnUiThread {
                             binding.statusText.text = "Speaking..."
-                            if (avatarController.currentState != AvatarState.SPEAKING) {
-                                avatarController.updateState(AvatarState.SPEAKING)
-                            }
                             ttsManager?.speak(sentence)
                         }
                         sentenceBuffer = StringBuilder()
@@ -173,12 +194,17 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onComplete = {
-                val remaining = sentenceBuffer.toString().trim().replace(Regex("\\[.*?\\]"), "").replace(Regex("\\*.*?\\*"), "")
-                if (remaining.isNotEmpty()) {
-                    runOnUiThread { 
-                        binding.statusText.text = "Speaking..."
+                val remaining = sentenceBuffer.toString().trim()
+                    .replace(Regex("\\[.*?\\]"), "")
+                    .replace(Regex("\\*.*?\\*"), "")
+                    .trim()
+                
+                runOnUiThread {
+                    if (remaining.isNotEmpty()) {
                         ttsManager?.speak(remaining)
                     }
+                    // ONLY signal end when the AI is completely finished AND final sentence is queued
+                    ttsManager?.endStream()
                 }
                 conversationManager.addModelMessage(fullResponse.toString())
             },
