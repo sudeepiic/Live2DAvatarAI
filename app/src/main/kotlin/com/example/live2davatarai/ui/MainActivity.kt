@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -17,14 +16,15 @@ import com.example.live2davatarai.databinding.ActivityMainBinding
 import com.example.live2davatarai.engine.AvatarController
 import com.example.live2davatarai.engine.AvatarExpression
 import com.example.live2davatarai.engine.AvatarState
-import com.example.live2davatarai.network.GeminiClient
+import com.example.live2davatarai.network.OpenAIClient
+import com.example.live2davatarai.util.LogUtil
 import com.live2d.demo.JniBridgeJava
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var speechInputManager: SpeechInputManager? = null
     private var ttsManager: DeepgramStreamingTTSManager? = null
-    private var geminiClient: GeminiClient? = null
+    private var aiClient: OpenAIClient? = null
     private lateinit var conversationManager: ConversationManager
     private lateinit var avatarController: AvatarController
     private var audioAnalyzer: AudioAnalyzer? = null
@@ -32,9 +32,8 @@ class MainActivity : AppCompatActivity() {
     private val PERMISSION_REQUEST_CODE = 100
     private var isListening = false
 
-    // API Keys - Deepgram for TTS, OpenAI for AI responses
-    private val DEEPGRAM_API_KEY = "REDACTED"
-    private val OPENAI_API_KEY = "REDACTED"
+    private val deepgramApiKey = "REDACTED"
+    private val openAiApiKey = "REDACTED"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,13 +44,13 @@ class MainActivity : AppCompatActivity() {
             JniBridgeJava.SetContext(this)
             JniBridgeJava.SetActivityInstance(this)
         } catch (e: Exception) {
-            Log.e("MainActivity", "JNI Setup Failed", e)
+            LogUtil.e("MainActivity", "JNI Setup Failed", e)
         }
 
         avatarController = AvatarController()
         binding.avatarSurfaceView.setController(avatarController)
         conversationManager = ConversationManager()
-        geminiClient = GeminiClient(OPENAI_API_KEY) // OpenAI API for AI responses
+        aiClient = OpenAIClient(openAiApiKey)
 
         setupListeners()
         checkPermissionsAndInit()
@@ -59,6 +58,7 @@ class MainActivity : AppCompatActivity() {
         binding.micButton.visibility = android.view.View.GONE
         binding.settingsButton.visibility = android.view.View.GONE
         binding.avatarSurfaceView.setOnClickListener { toggleListening() }
+
     }
 
     private fun toggleListening() {
@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
     private fun initPermissionDependentModules() {
         if (ttsManager != null) return
         try {
-            ttsManager = DeepgramStreamingTTSManager(this, DEEPGRAM_API_KEY) {
+            ttsManager = DeepgramStreamingTTSManager(this, deepgramApiKey) {
                 runOnUiThread {
                     avatarController.updateState(AvatarState.IDLE)
                     binding.statusText.text = "Idle"
@@ -117,7 +117,7 @@ class MainActivity : AppCompatActivity() {
                 }}
             )
         } catch (e: Exception) {
-            Log.e("MainActivity", "Module Init Failed", e)
+            LogUtil.e("MainActivity", "Module Init Failed", e)
         }
     }
 
@@ -136,14 +136,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUserInput(input: String) {
         if (input.isBlank()) return
+        LogUtil.d("MainActivity", "handleUserInput()")
         runOnUiThread {
-            binding.statusText.text = "Thinking..."
+            binding.statusText.text = "Heard: ${input.take(80)}"
             avatarController.updateState(AvatarState.THINKING)
         }
         conversationManager.addUserMessage(input)
 
         val fullResponse = StringBuilder()
-        var sentenceBuffer = StringBuilder()
         var isTagFound = false
 
         // CRITICAL: Force state to SPEAKING immediately and don't let it flicker
@@ -157,7 +157,8 @@ class MainActivity : AppCompatActivity() {
         audioAnalyzer?.stop()
         audioAnalyzer?.start(ttsManager?.getAudioSessionId() ?: 0)
 
-        geminiClient?.streamResponse(
+        LogUtil.d("MainActivity", "Starting AI stream")
+        aiClient?.streamResponse(
             systemInstruction = conversationManager.systemInstruction,
             history = conversationManager.getHistoryJson(),
             onTokenReceived = { token ->
@@ -174,34 +175,18 @@ class MainActivity : AppCompatActivity() {
                     isTagFound = true
                 }
 
-                sentenceBuffer.append(token)
-                val currentText = sentenceBuffer.toString()
-                
-                // Stream faster: send text as soon as we have a clause or sentence
-                if (currentText.contains(Regex("[,.!?]\\s")) || currentText.contains(Regex("[.!?]$"))) {
-                    val sentence = currentText.trim()
-                        .replace(Regex("\\[.*?\\]"), "")
-                        .replace(Regex("\\*.*?\\*"), "")
-                        .trim()
-                        
-                    if (sentence.isNotEmpty()) {
-                        runOnUiThread {
-                            binding.statusText.text = "Speaking..."
-                            ttsManager?.speak(sentence)
-                        }
-                        sentenceBuffer = StringBuilder()
-                    }
-                }
             },
             onComplete = {
-                val remaining = sentenceBuffer.toString().trim()
+                LogUtil.d("MainActivity", "AI stream complete")
+                val remaining = fullResponse.toString().trim()
                     .replace(Regex("\\[.*?\\]"), "")
                     .replace(Regex("\\*.*?\\*"), "")
                     .trim()
                 
                 runOnUiThread {
                     if (remaining.isNotEmpty()) {
-                        ttsManager?.speak(remaining)
+                        binding.statusText.text = "Speaking: $remaining"
+                        ttsManager?.enqueue(remaining)
                     }
                     // ONLY signal end when the AI is completely finished AND final sentence is queued
                     ttsManager?.endStream()
@@ -234,11 +219,13 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnPause() } catch (t: Throwable) {}
+        ttsManager?.stop()
     }
 
     override fun onStop() {
         super.onStop()
         try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnStop() } catch (t: Throwable) {}
+        ttsManager?.disconnect()
     }
 
     override fun onDestroy() {
