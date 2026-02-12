@@ -35,23 +35,37 @@ class Live2DRenderer : GLSurfaceView.Renderer {
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        JniBridgeJava.nativeOnSurfaceCreated()
+        if (JniBridgeJava.isReady()) {
+            try { JniBridgeJava.nativeOnSurfaceCreated() } catch (t: Throwable) {}
+        }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        JniBridgeJava.nativeOnSurfaceChanged(width, height)
+        if (JniBridgeJava.isReady()) {
+            try { JniBridgeJava.nativeOnSurfaceChanged(width, height) } catch (t: Throwable) {}
+        }
     }
 
     override fun onDrawFrame(gl: GL10?) {
         controller?.let {
             it.updateAnimations()
-            JniBridgeJava.nativeUpdateParameters(
-                it.mouthOpenY,
-                it.bodyAngleX,
-                it.eyeOpen,
-                it.browY
-            )
+            if (JniBridgeJava.isReady()) {
+                try {
+                    JniBridgeJava.nativeUpdateParameters(
+                        it.mouthOpenY,
+                        it.bodyAngleX,
+                        it.eyeOpen,
+                        it.browY
+                    )
+                } catch (t: Throwable) {}
+            }
         }
-        JniBridgeJava.nativeOnDrawFrame()
+        if (JniBridgeJava.isReady()) {
+            try { JniBridgeJava.nativeOnDrawFrame() } catch (t: Throwable) {}
+        } else {
+            // Fallback clear
+            GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        }
     }
 }

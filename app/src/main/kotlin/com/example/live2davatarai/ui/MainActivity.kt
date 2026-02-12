@@ -225,22 +225,22 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        try { JniBridgeJava.nativeOnStart() } catch (e: Exception) {}
+        try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnStart() } catch (t: Throwable) {}
     }
 
     override fun onPause() {
         super.onPause()
-        try { JniBridgeJava.nativeOnPause() } catch (e: Exception) {}
+        try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnPause() } catch (t: Throwable) {}
     }
 
     override fun onStop() {
         super.onStop()
-        try { JniBridgeJava.nativeOnStop() } catch (e: Exception) {}
+        try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnStop() } catch (t: Throwable) {}
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        try { JniBridgeJava.nativeOnDestroy() } catch (e: Exception) {}
+        try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnDestroy() } catch (t: Throwable) {}
         speechInputManager?.destroy()
         ttsManager?.destroy()
         audioAnalyzer?.stop()

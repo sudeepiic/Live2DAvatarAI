@@ -60,7 +60,16 @@ object JniBridgeJava {
         activityInstance?.moveTaskToBack(true)
     }
 
+    private var isLibraryLoaded = false
+
     init {
-        System.loadLibrary("live2davatarai")
+        try {
+            System.loadLibrary("live2davatarai")
+            isLibraryLoaded = true
+        } catch (t: Throwable) {
+            t.printStackTrace()
+        }
     }
+
+    fun isReady(): Boolean = isLibraryLoaded
 }
