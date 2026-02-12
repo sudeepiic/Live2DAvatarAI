@@ -1,15 +1,19 @@
 package com.example.live2davatarai.audio
 
 import android.media.audiofx.Visualizer
+import android.util.Log
 import kotlin.math.abs
 
 class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
     private var visualizer: Visualizer? = null
 
     fun start(audioSessionId: Int = 0) {
+        if (visualizer != null) return
+        
         try {
+            val captureSize = Visualizer.getCaptureSizeRange()[1]
             visualizer = Visualizer(audioSessionId).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[1]
+                this.captureSize = captureSize
                 setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                     override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
                         waveform?.let {
@@ -22,25 +26,31 @@ class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
                 }, Visualizer.getMaxCaptureRate() / 2, true, false)
                 enabled = true
             }
+            Log.d("AudioAnalyzer", "Visualizer started successfully")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("AudioAnalyzer", "Failed to start Visualizer: ${e.message}")
+            visualizer = null
         }
     }
 
     private fun calculateAmplitude(waveform: ByteArray): Float {
+        if (waveform.isEmpty()) return 0f
         var sum = 0f
-        for (i in 0 until waveform.size) {
+        for (i in waveform.indices) {
             val value = (waveform[i].toInt() and 0xFF) - 128
             sum += abs(value.toFloat())
         }
         val avg = sum / waveform.size
-        // Normalize to 0.0 - 1.0 range based on typical speech levels
         return (avg / 32f).coerceIn(0f, 1.0f)
     }
 
     fun stop() {
-        visualizer?.enabled = false
-        visualizer?.release()
+        try {
+            visualizer?.enabled = false
+            visualizer?.release()
+        } catch (e: Exception) {
+            Log.e("AudioAnalyzer", "Error stopping visualizer: ${e.message}")
+        }
         visualizer = null
     }
 }

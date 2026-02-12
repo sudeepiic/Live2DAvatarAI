@@ -4,11 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
-import android.widget.EditText
+import android.util.Log
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -25,122 +22,129 @@ import com.live2d.demo.JniBridgeJava
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private lateinit var speechInputManager: SpeechInputManager
-    private lateinit var ttsManager: TTSManager
+    private var speechInputManager: SpeechInputManager? = null
+    private var ttsManager: TTSManager? = null
     private var geminiClient: GeminiClient? = null
     private lateinit var conversationManager: ConversationManager
     private lateinit var avatarController: AvatarController
-    private lateinit var audioAnalyzer: AudioAnalyzer
+    private var audioAnalyzer: AudioAnalyzer? = null
 
     private val PERMISSION_REQUEST_CODE = 100
     private var isListening = false
-    private var apiKey: String = ""
+    
+    // Hardcoded Gemini API Key as requested
+    private val API_KEY = "AIzaSyDxjbQ8mNukozMskIwLU5euPeW3xnR4TRM"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        JniBridgeJava.SetContext(this)
-        JniBridgeJava.SetActivityInstance(this)
-
-        loadApiKey()
-        initModules()
-        setupListeners()
-        checkPermissions()
-        audioAnalyzer.start()
-
-        if (apiKey.isEmpty()) {
-            showApiKeyDialog()
+        // Initialize JNI first
+        try {
+            JniBridgeJava.SetContext(this)
+            JniBridgeJava.SetActivityInstance(this)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "JNI Setup Failed", e)
         }
-    }
 
-    private fun loadApiKey() {
-        val prefs = getSharedPreferences("Live2DAvatarPrefs", Context.MODE_PRIVATE)
-        apiKey = prefs.getString("GEMINI_API_KEY", "") ?: ""
-    }
-
-    private fun saveApiKey(key: String) {
-        val prefs = getSharedPreferences("Live2DAvatarPrefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("GEMINI_API_KEY", key).apply()
-        apiKey = key
-        geminiClient = GeminiClient(apiKey)
-    }
-
-    private fun showApiKeyDialog() {
-        val input = EditText(this)
-        input.hint = "Enter Gemini API Key"
-        input.setText(apiKey)
-
-        AlertDialog.Builder(this)
-            .setTitle("API Key Required")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                val newKey = input.text.toString().trim()
-                if (newKey.isNotEmpty()) {
-                    saveApiKey(newKey)
-                }
-            }
-            .setCancelable(false)
-            .show()
-    }
-
-    private fun initModules() {
+        // Basic Non-Permission Modules
         avatarController = AvatarController()
         binding.avatarSurfaceView.setController(avatarController)
         conversationManager = ConversationManager()
-        if (apiKey.isNotEmpty()) {
-            geminiClient = GeminiClient(apiKey)
+        geminiClient = GeminiClient(API_KEY)
+
+        setupListeners()
+        checkPermissionsAndInit()
+    }
+
+    private fun checkPermissionsAndInit() {
+        val permissions = arrayOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.MODIFY_AUDIO_SETTINGS
+        )
+        val missingPermissions = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
         
-        audioAnalyzer = AudioAnalyzer { amplitude ->
-            avatarController.setSpeechAmplitude(amplitude)
+        if (missingPermissions.isEmpty()) {
+            initPermissionDependentModules()
+        } else {
+            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), PERMISSION_REQUEST_CODE)
         }
+    }
 
-        ttsManager = TTSManager(this) {
-            runOnUiThread {
-                avatarController.updateState(AvatarState.IDLE)
-                binding.statusText.text = "Idle"
+    private fun initPermissionDependentModules() {
+        if (ttsManager != null) return // Already initialized
+
+        try {
+            audioAnalyzer = AudioAnalyzer { amplitude ->
+                avatarController.setSpeechAmplitude(amplitude)
             }
+            audioAnalyzer?.start()
+
+            ttsManager = TTSManager(this) {
+                runOnUiThread {
+                    avatarController.updateState(AvatarState.IDLE)
+                    binding.statusText.text = "Idle"
+                }
+            }
+
+            speechInputManager = SpeechInputManager(
+                this,
+                onPartialResult = { partial ->
+                    runOnUiThread { binding.statusText.text = "Listening: $partial" }
+                },
+                onFinalResult = { final ->
+                    handleUserInput(final)
+                },
+                onError = { error ->
+                    runOnUiThread {
+                        binding.statusText.text = "Error: $error"
+                        avatarController.updateState(AvatarState.IDLE)
+                    }
+                },
+                onStateChange = { active ->
+                    runOnUiThread {
+                        isListening = active
+                        updateUIState()
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Module Init Failed", e)
+            Toast.makeText(this, "Failed to initialize audio components", Toast.LENGTH_LONG).show()
         }
+    }
 
-        speechInputManager = SpeechInputManager(
-            this,
-            onPartialResult = { partial ->
-                binding.statusText.text = "Listening: $partial"
-            },
-            onFinalResult = { final ->
-                handleUserInput(final)
-            },
-            onError = { error ->
-                binding.statusText.text = "Error: $error"
-                avatarController.updateState(AvatarState.IDLE)
-            },
-            onStateChange = { active ->
-                isListening = active
-                updateUIState()
-            }
-        )
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            initPermissionDependentModules()
+        } else {
+            Toast.makeText(this, "Permissions required for Voice AI", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun setupListeners() {
         binding.micButton.setOnClickListener {
-            if (geminiClient == null) {
-                showApiKeyDialog()
+            if (speechInputManager == null) {
+                checkPermissionsAndInit()
                 return@setOnClickListener
             }
             if (isListening) {
-                speechInputManager.stopListening()
+                speechInputManager?.stopListening()
             } else {
-                ttsManager.stop()
-                speechInputManager.startListening()
+                ttsManager?.stop()
+                speechInputManager?.startListening()
                 avatarController.updateState(AvatarState.LISTENING)
                 binding.statusText.text = "Listening..."
             }
         }
         
+        // Settings button is now redundant for the key, but we'll keep it for future use
         binding.settingsButton.setOnClickListener {
-            showApiKeyDialog()
+            Toast.makeText(this, "API Key is hardcoded.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -187,7 +191,7 @@ class MainActivity : AppCompatActivity() {
                                 avatarController.updateState(AvatarState.SPEAKING)
                             }
                             binding.statusText.text = "Speaking..."
-                            ttsManager.speak(sentence)
+                            ttsManager?.speak(sentence)
                         }
                         sentenceBuffer = StringBuilder()
                     }
@@ -196,7 +200,7 @@ class MainActivity : AppCompatActivity() {
             onComplete = {
                 val remaining = sentenceBuffer.toString().trim()
                 if (remaining.isNotEmpty()) {
-                    runOnUiThread { ttsManager.speak(remaining) }
+                    runOnUiThread { ttsManager?.speak(remaining) }
                 }
                 conversationManager.addModelMessage(fullResponse.toString())
             },
@@ -205,55 +209,40 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "AI Error: ${error.message}", Toast.LENGTH_SHORT).show()
                     avatarController.updateState(AvatarState.IDLE)
                     avatarController.setExpression(AvatarExpression.CONFUSED)
-                    binding.statusText.text = "Error"
+                    binding.statusText.text = "Idle"
                 }
             }
         )
     }
 
     private fun updateUIState() {
-        runOnUiThread {
-            if (isListening) {
-                binding.micButton.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            } else {
-                binding.micButton.setImageResource(android.R.drawable.ic_btn_speak_now)
-            }
-        }
-    }
-
-    private fun checkPermissions() {
-        val permissions = arrayOf(
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.MODIFY_AUDIO_SETTINGS
-        )
-        val missingPermissions = permissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missingPermissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), PERMISSION_REQUEST_CODE)
+        if (isListening) {
+            binding.micButton.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+        } else {
+            binding.micButton.setImageResource(android.R.drawable.ic_btn_speak_now)
         }
     }
 
     override fun onStart() {
         super.onStart()
-        JniBridgeJava.nativeOnStart()
+        try { JniBridgeJava.nativeOnStart() } catch (e: Exception) {}
     }
 
     override fun onPause() {
         super.onPause()
-        JniBridgeJava.nativeOnPause()
+        try { JniBridgeJava.nativeOnPause() } catch (e: Exception) {}
     }
 
     override fun onStop() {
         super.onStop()
-        JniBridgeJava.nativeOnStop()
+        try { JniBridgeJava.nativeOnStop() } catch (e: Exception) {}
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        JniBridgeJava.nativeOnDestroy()
-        speechInputManager.destroy()
-        ttsManager.destroy()
-        audioAnalyzer.stop()
+        try { JniBridgeJava.nativeOnDestroy() } catch (e: Exception) {}
+        speechInputManager?.destroy()
+        ttsManager?.destroy()
+        audioAnalyzer?.stop()
     }
 }
