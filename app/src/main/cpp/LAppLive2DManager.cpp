@@ -89,24 +89,8 @@ void LAppLive2DManager::ReleaseAllModel()
 
 void LAppLive2DManager::SetUpModel()
 {
-    const char MODEL3_JSON[] = u8".model3.json";
     _modelDir.Clear();
-    Csm::csmVector<Csm::csmString> root = JniBridgeC::GetAssetList("");
-    for (size_t i = 0; i < root.GetSize(); i++)
-    {
-        Csm::csmString target(root[i]);
-        target.Append(MODEL3_JSON, sizeof(MODEL3_JSON) - 1);
-        Csm::csmVector<Csm::csmString> sub = JniBridgeC::GetAssetList(root[i].GetRawString());
-        for (size_t j = 0; j < sub.GetSize(); j++)
-        {
-            if (target == sub[j])
-            {
-                _modelDir.PushBack(root[i]);
-                break;
-            }
-        }
-    }
-    qsort(_modelDir.GetPtr(), _modelDir.GetSize(), sizeof(csmString), CompareCsmString);
+    _modelDir.PushBack(csmString("wanko"));
 }
 
 LAppModel* LAppLive2DManager::GetModel(csmUint32 no) const
@@ -259,11 +243,8 @@ void LAppLive2DManager::ChangeScene(Csm::csmInt32 index)
     }
 
     // model3.jsonのパスを決定する.
-    // ディレクトリ名とmodel3.jsonの名前を一致していることが条件
     csmString modelPath(ResourcesPath);
-    modelPath += _modelDir[index] + "/";
-    csmString modelJsonName(_modelDir[index]);
-    modelJsonName += ".model3.json";
+    csmString modelJsonName("wanko_touch_t02.model3.json");
 
     ReleaseAllModel();
     _models.PushBack(new LAppModel());

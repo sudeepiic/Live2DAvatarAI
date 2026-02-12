@@ -1,6 +1,7 @@
 package com.example.live2davatarai.ui
 
 import android.content.Context
+import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.AttributeSet
 import com.example.live2davatarai.engine.AvatarController
