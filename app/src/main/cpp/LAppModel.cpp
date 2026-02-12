@@ -71,8 +71,19 @@ void LAppModel::LoadAssets(const csmChar* dir, const csmChar* fileName)
     const csmString path = csmString(dir) + fileName;
 
     csmByte* buffer = CreateBuffer(path.GetRawString(), &size);
+    if (!buffer)
+    {
+        LAppPal::PrintLogLn("Failed to load buffer from: %s", path.GetRawString());
+        return;
+    }
     ICubismModelSetting* setting = new CubismModelSettingJson(buffer, size);
     DeleteBuffer(buffer, path.GetRawString());
+
+    if (!setting)
+    {
+        LAppPal::PrintLogLn("Failed to parse model setting from: %s", fileName);
+        return;
+    }
 
     SetupModel(setting);
 
@@ -110,8 +121,15 @@ void LAppModel::SetupModel(ICubismModelSetting* setting)
         }
 
         buffer = CreateBuffer(path.GetRawString(), &size);
-        LoadModel(buffer, size);
-        DeleteBuffer(buffer, path.GetRawString());
+        if (buffer)
+        {
+            LoadModel(buffer, size);
+            DeleteBuffer(buffer, path.GetRawString());
+        }
+        else
+        {
+            LAppPal::PrintLogLn("Failed to load model binary: %s", path.GetRawString());
+        }
     }
 
     //Expression

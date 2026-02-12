@@ -61,3 +61,6 @@
 1568	1769	1770894849303353109	CMakeFiles/live2davatarai.dir/MouseActionManager_Common.cpp.o	1d6c3e69ae9b7fe3
 1237	1771	1770894849304396906	CMakeFiles/live2davatarai.dir/LAppModel.cpp.o	39644d730c3ad27a
 1771	1842	1770894849355660152	/Users/sudeep/Live2DAvatarAI/app/build/intermediates/cxx/Debug/5y344e1r/obj/x86_64/liblive2davatarai.so	1d01cf42b794bf89
+1	106	1770895782827744909	CMakeFiles/live2davatarai.dir/LAppDefine.cpp.o	8c8ee5c4b179053e
+1	135	1770895782856685643	CMakeFiles/live2davatarai.dir/LAppLive2DManager.cpp.o	e611be212afe3723
+135	223	1770895782927067384	/Users/sudeep/Live2DAvatarAI/app/build/intermediates/cxx/Debug/5y344e1r/obj/x86_64/liblive2davatarai.so	1d01cf42b794bf89
