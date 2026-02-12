@@ -32,6 +32,12 @@ class AvatarController {
         currentExpression = expression
     }
 
+    fun setSpeechAmplitude(amplitude: Float) {
+        if (currentState == AvatarState.SPEAKING) {
+            mouthOpenY = amplitude
+        }
+    }
+
     fun updateAnimations() {
         val now = System.currentTimeMillis()
         val deltaTime = (now - lastUpdate) / 1000f
@@ -60,12 +66,8 @@ class AvatarController {
                 bodyAngleX = -5f
             }
             AvatarState.SPEAKING -> {
-                mouthOpenY = (0..100).random() / 100f
+                // mouthOpenY is now set externally by AudioAnalyzer
             }
         }
     }
-}
-
-enum class AvatarState {
-    IDLE, LISTENING, THINKING, SPEAKING
 }

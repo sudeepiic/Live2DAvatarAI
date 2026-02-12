@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var geminiClient: GeminiClient
     private lateinit var conversationManager: ConversationManager
     private lateinit var avatarController: AvatarController
+    private lateinit var audioAnalyzer: AudioAnalyzer
 
     private val PERMISSION_REQUEST_CODE = 100
     private var isListening = false
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity() {
         initModules()
         setupListeners()
         checkPermissions()
+        audioAnalyzer.start()
     }
 
     private fun initModules() {
@@ -44,6 +46,10 @@ class MainActivity : AppCompatActivity() {
         binding.avatarSurfaceView.setController(avatarController)
         conversationManager = ConversationManager()
         geminiClient = GeminiClient(API_KEY)
+
+        audioAnalyzer = AudioAnalyzer { amplitude ->
+            avatarController.setSpeechAmplitude(amplitude)
+        }
         
         ttsManager = TTSManager(this) {
             runOnUiThread {
@@ -161,8 +167,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_REQUEST_CODE)
+        val permissions = arrayOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.MODIFY_AUDIO_SETTINGS
+        )
+        val missingPermissions = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missingPermissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), PERMISSION_REQUEST_CODE)
         }
     }
 
@@ -170,5 +183,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         speechInputManager.destroy()
         ttsManager.destroy()
+        audioAnalyzer.stop()
     }
 }
