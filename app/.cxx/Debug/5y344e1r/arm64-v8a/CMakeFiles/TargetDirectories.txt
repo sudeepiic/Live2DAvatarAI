@@ -1,0 +1,3 @@
+/Users/sudeep/Live2DAvatarAI/app/.cxx/Debug/5y344e1r/arm64-v8a/CMakeFiles/live2davatarai.dir
+/Users/sudeep/Live2DAvatarAI/app/.cxx/Debug/5y344e1r/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/sudeep/Live2DAvatarAI/app/.cxx/Debug/5y344e1r/arm64-v8a/CMakeFiles/rebuild_cache.dir

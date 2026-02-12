@@ -14,23 +14,18 @@ file(GLOB_RECURSE FRAMEWORK_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/Framework/*.cpp
 )
 
-# App sources
-set(APP_SOURCES
-    JniBridgeC.cpp
-    LAppDefine.cpp
-    LAppDelegate.cpp
-    LAppLive2DManager.cpp
-    LAppModel.cpp
-    LAppPal.cpp
-    LAppSprite.cpp
-    LAppSpriteShader.cpp
-    LAppTextureManager.cpp
-    LAppView.cpp
+# App sources (including common files)
+file(GLOB APP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
 )
 
 add_library(${APP_NAME} SHARED
     ${FRAMEWORK_SOURCES}
     ${APP_SOURCES}
+)
+
+target_compile_definitions(${APP_NAME} PRIVATE
+    CSM_TARGET_ANDROID_ES2
 )
 
 target_include_directories(${APP_NAME} PRIVATE

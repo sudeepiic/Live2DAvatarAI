@@ -1,0 +1,40 @@
+{
+  "buildFiles": [
+    "/Users/sudeep/Live2DAvatarAI/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/opt/homebrew/share/android-commandlinetools/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/sudeep/Live2DAvatarAI/app/.cxx/Debug/5y344e1r/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/opt/homebrew/share/android-commandlinetools/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/sudeep/Live2DAvatarAI/app/.cxx/Debug/5y344e1r/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "live2davatarai::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "live2davatarai",
+      "output": "/Users/sudeep/Live2DAvatarAI/app/build/intermediates/cxx/Debug/5y344e1r/obj/x86/liblive2davatarai.so",
+      "runtimeFiles": [
+        "/Users/sudeep/Live2DAvatarAI/app/src/main/jniLibs/x86/libLive2DCubismCore.so"
+      ]
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/opt/homebrew/share/android-commandlinetools/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/opt/homebrew/share/android-commandlinetools/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

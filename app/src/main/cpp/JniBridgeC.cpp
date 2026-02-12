@@ -10,6 +10,10 @@
 #include <jni.h>
 #include "LAppDelegate.hpp"
 #include "LAppPal.hpp"
+#include "LAppLive2DManager.hpp"
+#include "LAppModel.hpp"
+#include "Model/CubismModel.hpp"
+#include "Id/CubismIdManager.hpp"
 
 using namespace Csm;
 
@@ -149,14 +153,15 @@ extern "C"
         for (csmUint32 i = 0; i < manager->GetModelNum(); i++) {
             LAppModel* model = manager->GetModel(i);
             if (model && model->GetModel()) {
-                // Map parameters to Live2D IDs
-                // These IDs might differ based on the model, but these are standard
-                model->GetModel()->SetParameterValue("ParamMouthOpenY", mouthOpenY);
-                model->GetModel()->SetParameterValue("ParamAngleX", bodyAngleX);
-                model->GetModel()->SetParameterValue("ParamEyeLOpen", eyeOpen);
-                model->GetModel()->SetParameterValue("ParamEyeROpen", eyeOpen);
-                model->GetModel()->SetParameterValue("ParamBrowLY", browY);
-                model->GetModel()->SetParameterValue("ParamBrowRY", browY);
+                CubismModel* csmModel = model->GetModel();
+                CubismIdManager* idManager = CubismFramework::GetIdManager();
+
+                csmModel->SetParameterValue(idManager->GetId("ParamMouthOpenY"), mouthOpenY);
+                csmModel->SetParameterValue(idManager->GetId("ParamAngleX"), bodyAngleX);
+                csmModel->SetParameterValue(idManager->GetId("ParamEyeLOpen"), eyeOpen);
+                csmModel->SetParameterValue(idManager->GetId("ParamEyeROpen"), eyeOpen);
+                csmModel->SetParameterValue(idManager->GetId("ParamBrowLY"), browY);
+                csmModel->SetParameterValue(idManager->GetId("ParamBrowRY"), browY);
             }
         }
     }
