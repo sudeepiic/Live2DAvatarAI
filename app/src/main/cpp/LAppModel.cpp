@@ -29,6 +29,12 @@ LAppModel::LAppModel()
     : LAppModel_Common()
     , _modelSetting(NULL)
     , _userTimeSeconds(0.0f)
+    , _manualMouthY(0.0f)
+    , _manualMouthForm(0.0f)
+    , _manualBodyX(0.0f)
+    , _manualEyeOpen(1.0f)
+    , _manualBrowY(0.0f)
+    , _hasManualUpdate(false)
 {
     if (DebugLogEnable)
     {
@@ -404,15 +410,10 @@ void LAppModel::Update()
         _physics->Evaluate(_model, deltaTimeSeconds);
     }
 
-    // リップシンクの設定
+    // リップシンクの設定 (Manual override enabled)
     if (_lipSync)
     {
-        csmFloat32 value = 0; // リアルタイムでリップシンクを行う場合、システムから音量を取得して0〜1の範囲で値を入力します。
-
-        for (csmUint32 i = 0; i < _lipSyncIds.GetSize(); ++i)
-        {
-            _model->AddParameterValue(_lipSyncIds[i], value, 0.8f);
-        }
+        // We are now setting this via JniBridgeC manual update to sync with Kotlin AudioAnalyzer
     }
 
     // ポーズの設定
@@ -421,8 +422,27 @@ void LAppModel::Update()
         _pose->UpdateParameters(_model, deltaTimeSeconds);
     }
 
-    _model->Update();
+    // --- MANUAL PARAMETER INJECTION (Late Stage) ---
+    if (_hasManualUpdate)
+    {
+        CubismIdManager* idManager = CubismFramework::GetIdManager();
+        
+        // Force Mouth Open (Overriding EVERYTHING)
+        _model->SetParameterValue(idManager->GetId("ParamMouthOpenY"), _manualMouthY, 1.0f);
+        _model->SetParameterValue(idManager->GetId("PARAM_MOUTH_OPEN_Y"), _manualMouthY, 1.0f);
+        _model->SetParameterValue(idManager->GetId("ParamMouthForm"), _manualMouthForm, 1.0f);
+        
+        // Force Eyes
+        _model->SetParameterValue(idManager->GetId("ParamEyeLOpen"), _manualEyeOpen, 1.0f);
+        _model->SetParameterValue(idManager->GetId("ParamEyeROpen"), _manualEyeOpen, 1.0f);
+        
+        // Force Body/Face
+        _model->SetParameterValue(idManager->GetId("ParamAngleX"), _manualBodyX, 1.0f);
+        _model->SetParameterValue(idManager->GetId("ParamBrowLY"), _manualBrowY, 1.0f);
+        _model->SetParameterValue(idManager->GetId("ParamBrowRY"), _manualBrowY, 1.0f);
+    }
 
+    _model->Update();
 }
 
 CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar* group, csmInt32 no, csmInt32 priority, ACubismMotion::FinishedMotionCallback onFinishedMotionHandler, ACubismMotion::BeganMotionCallback onBeganMotionHandler)
@@ -626,4 +646,14 @@ void LAppModel::MotionEventFired(const csmString& eventValue)
 Csm::Rendering::CubismRenderTarget_OpenGLES2& LAppModel::GetRenderBuffer()
 {
     return _renderBuffer;
+}
+
+void LAppModel::SetManualParameters(Csm::csmFloat32 mouthY, Csm::csmFloat32 mouthForm, Csm::csmFloat32 bodyX, Csm::csmFloat32 eyeOpen, Csm::csmFloat32 browY)
+{
+    _manualMouthY = mouthY;
+    _manualMouthForm = mouthForm;
+    _manualBodyX = bodyX;
+    _manualEyeOpen = eyeOpen;
+    _manualBrowY = browY;
+    _hasManualUpdate = true;
 }

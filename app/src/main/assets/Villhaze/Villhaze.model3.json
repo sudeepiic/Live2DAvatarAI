@@ -1,0 +1,23 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "Villhaze.moc3",
+		"Textures": [
+			"Villhaze.8192/texture_00.png"
+		],
+		"Physics": "Villhaze.physics3.json",
+		"DisplayInfo": "Villhaze.cdi3.json"
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": []
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": []
+		}
+	]
+}

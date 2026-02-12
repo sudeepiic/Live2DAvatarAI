@@ -8,10 +8,10 @@ class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
     private var visualizer: Visualizer? = null
 
     fun start(audioSessionId: Int = 0) {
-        if (visualizer != null) return
+        stop() // Stop any previous instance
         
         try {
-            val captureSize = Visualizer.getCaptureSizeRange()[1]
+            Log.d("AudioAnalyzer", "Starting Visualizer on session $audioSessionId")
             visualizer = Visualizer(audioSessionId).apply {
                 this.captureSize = captureSize
                 setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
@@ -41,7 +41,9 @@ class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
             sum += abs(value.toFloat())
         }
         val avg = sum / waveform.size
-        return (avg / 32f).coerceIn(0f, 1.0f)
+        // Hyper sensitivity: dividing by 8 instead of 16
+        // This will make even small sounds trigger mouth movement
+        return (avg / 8f).coerceIn(0f, 1.0f)
     }
 
     fun stop() {

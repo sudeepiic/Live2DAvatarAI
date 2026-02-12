@@ -90,7 +90,7 @@ void LAppLive2DManager::ReleaseAllModel()
 void LAppLive2DManager::SetUpModel()
 {
     _modelDir.Clear();
-    _modelDir.PushBack(csmString("wanko"));
+    _modelDir.PushBack(csmString("Villhaze"));
 }
 
 LAppModel* LAppLive2DManager::GetModel(csmUint32 no) const
@@ -243,8 +243,8 @@ void LAppLive2DManager::ChangeScene(Csm::csmInt32 index)
     }
 
     // model3.jsonのパスを決定する.
-    csmString modelPath("wanko/");
-    csmString modelJsonName("wanko_touch_t02.model3.json");
+    csmString modelPath("Villhaze/");
+    csmString modelJsonName("Villhaze.model3.json");
 
     ReleaseAllModel();
     _models.PushBack(new LAppModel());

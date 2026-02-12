@@ -22,31 +22,51 @@ class GeminiClient(private val apiKey: String) {
         onComplete: () -> Unit,
         onError: (Throwable) -> Unit
     ) {
-        if (apiKey.isEmpty()) {
-            onError(Exception("API Key is missing"))
-            return
+        // OpenAI Endpoint and Model
+        val url = "https://api.openai.com/v1/chat/completions"
+        // Using exactly what was requested: GPT-4.1 nano
+        val model = "gpt-4.1-nano" 
+        
+        Log.d("AiClient", "Requesting OpenAI ($model)...")
+
+        val messages = JSONArray()
+        
+        // System Message
+        messages.put(JSONObject().apply {
+            put("role", "system")
+            put("content", systemInstruction)
+        })
+
+        // Conversation History
+        for (i in 0 until history.length()) {
+            val msg = history.getJSONObject(i)
+            val role = msg.getString("role")
+            val text = msg.getJSONArray("parts").getJSONObject(0).getString("text")
+            
+            messages.put(JSONObject().apply {
+                put("role", if (role == "model") "assistant" else "user")
+                put("content", text)
+            })
         }
 
-        // Use gemini-2.0-flash which is explicitly available for this key
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}"
-        
-        Log.d("GeminiClient", "Requesting Gemini API (v1beta/gemini-2.0-flash)...")
-
         val bodyJson = JSONObject().apply {
-            put("contents", history)
-            put("system_instruction", JSONObject().apply {
-                put("parts", JSONArray().put(JSONObject().put("text", systemInstruction)))
-            })
+            put("model", model)
+            put("messages", messages)
+            put("stream", true)
+            put("max_tokens", 4096)
+            put("temperature", 0.7)
         }
 
         val request = Request.Builder()
             .url(url)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
             .post(bodyJson.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("GeminiClient", "Network Failure", e)
+                Log.e("AiClient", "Network Failure", e)
                 onError(e)
             }
 
@@ -54,7 +74,7 @@ class GeminiClient(private val apiKey: String) {
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: ""
                     val errorMsg = "API Error ${response.code}: $errorBody"
-                    Log.e("GeminiClient", errorMsg)
+                    Log.e("AiClient", errorMsg)
                     onError(IOException(errorMsg))
                     response.close()
                     return
@@ -66,25 +86,23 @@ class GeminiClient(private val apiKey: String) {
                         val line = source.readUtf8Line() ?: break
                         if (line.startsWith("data: ")) {
                             val data = line.substring(6).trim()
+                            if (data == "[DONE]") break
                             if (data.isEmpty()) continue
                             
                             val json = JSONObject(data)
-                            val candidates = json.optJSONArray("candidates")
-                            if (candidates != null && candidates.length() > 0) {
-                                val content = candidates.getJSONObject(0).optJSONObject("content")
-                                val parts = content?.optJSONArray("parts")
-                                if (parts != null && parts.length() > 0) {
-                                    val text = parts.getJSONObject(0).optString("text")
-                                    if (text.isNotEmpty()) {
-                                        onTokenReceived(text)
-                                    }
+                            val choices = json.optJSONArray("choices")
+                            if (choices != null && choices.length() > 0) {
+                                val delta = choices.getJSONObject(0).optJSONObject("delta")
+                                val content = delta?.optString("content") ?: ""
+                                if (content.isNotEmpty()) {
+                                    onTokenReceived(content)
                                 }
                             }
                         }
                     }
                     onComplete()
                 } catch (e: Exception) {
-                    Log.e("GeminiClient", "Stream Parsing Error", e)
+                    Log.e("AiClient", "Stream Parsing Error", e)
                     onError(e)
                 } finally {
                     response.close()

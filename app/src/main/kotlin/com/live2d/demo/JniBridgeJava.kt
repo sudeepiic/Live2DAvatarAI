@@ -12,7 +12,7 @@ object JniBridgeJava {
     @JvmStatic external fun nativeOnSurfaceCreated()
     @JvmStatic external fun nativeOnSurfaceChanged(width: Int, height: Int)
     @JvmStatic external fun nativeOnDrawFrame()
-    @JvmStatic external fun nativeUpdateParameters(mouthOpenY: Float, bodyAngleX: Float, eyeOpen: Float, browY: Float)
+    @JvmStatic external fun nativeUpdateParameters(mouthOpenY: Float, mouthForm: Float, bodyAngleX: Float, eyeOpen: Float, browY: Float)
     @JvmStatic external fun nativeOnTouchesBegan(pointX: Float, pointY: Float)
     @JvmStatic external fun nativeOnTouchesEnded(pointX: Float, pointY: Float)
     @JvmStatic external fun nativeOnTouchesMoved(pointX: Float, pointY: Float)

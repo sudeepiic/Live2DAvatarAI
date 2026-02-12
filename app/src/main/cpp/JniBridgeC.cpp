@@ -147,21 +147,13 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
-    Java_com_live2d_demo_JniBridgeJava_nativeUpdateParameters(JNIEnv *env, jclass type, jfloat mouthOpenY, jfloat bodyAngleX, jfloat eyeOpen, jfloat browY)
+    Java_com_live2d_demo_JniBridgeJava_nativeUpdateParameters(JNIEnv *env, jclass type, jfloat mouthOpenY, jfloat mouthForm, jfloat bodyAngleX, jfloat eyeOpen, jfloat browY)
     {
         LAppLive2DManager* manager = LAppLive2DManager::GetInstance();
         for (csmUint32 i = 0; i < manager->GetModelNum(); i++) {
             LAppModel* model = manager->GetModel(i);
-            if (model && model->GetModel()) {
-                CubismModel* csmModel = model->GetModel();
-                CubismIdManager* idManager = CubismFramework::GetIdManager();
-
-                csmModel->SetParameterValue(idManager->GetId("ParamMouthOpenY"), mouthOpenY);
-                csmModel->SetParameterValue(idManager->GetId("ParamAngleX"), bodyAngleX);
-                csmModel->SetParameterValue(idManager->GetId("ParamEyeLOpen"), eyeOpen);
-                csmModel->SetParameterValue(idManager->GetId("ParamEyeROpen"), eyeOpen);
-                csmModel->SetParameterValue(idManager->GetId("ParamBrowLY"), browY);
-                csmModel->SetParameterValue(idManager->GetId("ParamBrowRY"), browY);
+            if (model) {
+                model->SetManualParameters(mouthOpenY, mouthForm, bodyAngleX, eyeOpen, browY);
             }
         }
     }

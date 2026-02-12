@@ -91,7 +91,7 @@ void LAppDelegate::Run()
     glClearDepthf(1.0f);
 
     //描画更新
-    if (_view != NULL)
+    if (_view != NULL && CubismFramework::IsInitialized())
     {
         _view->Render();
     }
@@ -138,9 +138,12 @@ void LAppDelegate::OnSurfaceCreate()
     Live2D::Cubism::Framework::Rendering::CubismShader_OpenGLES2::GetInstance()->ReleaseInvalidShaderProgram();
 
     LAppLive2DManager* live2DManager = LAppLive2DManager::GetInstance();
-    for (Csm::csmUint32 i = 0; i < live2DManager->GetModelNum(); i++)
+    if (live2DManager != NULL)
     {
-        live2DManager->GetModel(i)->ReloadRenderer();
+        for (Csm::csmUint32 i = 0; i < live2DManager->GetModelNum(); i++)
+        {
+            live2DManager->GetModel(i)->ReloadRenderer();
+        }
     }
 }
 
@@ -150,11 +153,19 @@ void LAppDelegate::OnSurfaceChanged(float width, float height)
     _width = width;
     _height = height;
 
-    //AppViewの初期化
-    _view->Initialize(width, height);
-    _view->InitializeSprite();
+    if (_view != NULL)
+    {
+        //AppViewの初期化
+        _view->Initialize(width, height);
+        _view->InitializeSprite();
+    }
+    
     // オフスクリーンのサイズ変更
-    LAppLive2DManager::GetInstance()->SetRenderTargetSize(width, height);
+    LAppLive2DManager* manager = LAppLive2DManager::GetInstance();
+    if (manager != NULL)
+    {
+        manager->SetRenderTargetSize(width, height);
+    }
 }
 
 void LAppDelegate::SetSceneIndex(int index)

@@ -166,12 +166,8 @@ void LAppView::Render()
     int maxWidth = LAppDelegate::GetInstance()->GetWindowWidth();
     int maxHeight = LAppDelegate::GetInstance()->GetWindowHeight();
     _back->SetWindowSize(maxWidth, maxHeight);
-    _gear->SetWindowSize(maxWidth, maxHeight);
-    _power->SetWindowSize(maxWidth, maxHeight);
 
     _back->Render();
-    _gear->Render();
-    _power->Render();
 
     if(_changeModel)
     {

@@ -32,15 +32,13 @@ class MainActivity : AppCompatActivity() {
     private val PERMISSION_REQUEST_CODE = 100
     private var isListening = false
     
-    // Hardcoded Gemini API Key as requested
-    private val API_KEY = "AIzaSyDxjbQ8mNukozMskIwLU5euPeW3xnR4TRM"
+    private val API_KEY = "YOUR_API_KEY_HERE"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize JNI first
         try {
             JniBridgeJava.SetContext(this)
             JniBridgeJava.SetActivityInstance(this)
@@ -48,7 +46,6 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "JNI Setup Failed", e)
         }
 
-        // Basic Non-Permission Modules
         avatarController = AvatarController()
         binding.avatarSurfaceView.setController(avatarController)
         conversationManager = ConversationManager()
@@ -56,64 +53,59 @@ class MainActivity : AppCompatActivity() {
 
         setupListeners()
         checkPermissionsAndInit()
+        
+        binding.micButton.visibility = android.view.View.GONE
+        binding.settingsButton.visibility = android.view.View.GONE
+        binding.avatarSurfaceView.setOnClickListener { toggleListening() }
+    }
+
+    private fun toggleListening() {
+        if (speechInputManager == null) {
+            checkPermissionsAndInit()
+            return
+        }
+        if (isListening) {
+            speechInputManager?.stopListening()
+        } else {
+            ttsManager?.stop()
+            speechInputManager?.startListening()
+            avatarController.updateState(AvatarState.LISTENING)
+            binding.statusText.text = "Listening..."
+        }
     }
 
     private fun checkPermissionsAndInit() {
-        val permissions = arrayOf(
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.MODIFY_AUDIO_SETTINGS
-        )
-        val missingPermissions = permissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        
-        if (missingPermissions.isEmpty()) {
-            initPermissionDependentModules()
-        } else {
-            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), PERMISSION_REQUEST_CODE)
-        }
+        val permissions = arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.MODIFY_AUDIO_SETTINGS)
+        val missing = permissions.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) initPermissionDependentModules()
+        else ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERMISSION_REQUEST_CODE)
     }
 
     private fun initPermissionDependentModules() {
-        if (ttsManager != null) return // Already initialized
-
+        if (ttsManager != null) return
         try {
-            audioAnalyzer = AudioAnalyzer { amplitude ->
-                avatarController.setSpeechAmplitude(amplitude)
-            }
+            audioAnalyzer = AudioAnalyzer { amplitude -> avatarController.setSpeechAmplitude(amplitude) }
             audioAnalyzer?.start()
-
             ttsManager = TTSManager(this) {
                 runOnUiThread {
                     avatarController.updateState(AvatarState.IDLE)
                     binding.statusText.text = "Idle"
                 }
             }
-
-            speechInputManager = SpeechInputManager(
-                this,
-                onPartialResult = { partial ->
-                    runOnUiThread { binding.statusText.text = "Listening: $partial" }
-                },
-                onFinalResult = { final ->
-                    handleUserInput(final)
-                },
-                onError = { error ->
-                    runOnUiThread {
-                        binding.statusText.text = "Error: $error"
-                        avatarController.updateState(AvatarState.IDLE)
-                    }
-                },
-                onStateChange = { active ->
-                    runOnUiThread {
-                        isListening = active
-                        updateUIState()
-                    }
-                }
+            speechInputManager = SpeechInputManager(this,
+                onPartialResult = { partial -> runOnUiThread { binding.statusText.text = "Listening: $partial" } },
+                onFinalResult = { final -> handleUserInput(final) },
+                onError = { error -> runOnUiThread { 
+                    binding.statusText.text = "Error: $error"
+                    avatarController.updateState(AvatarState.IDLE)
+                }},
+                onStateChange = { active -> runOnUiThread { 
+                    isListening = active
+                    updateUIState() 
+                }}
             )
         } catch (e: Exception) {
             Log.e("MainActivity", "Module Init Failed", e)
-            Toast.makeText(this, "Failed to initialize audio components", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -121,28 +113,10 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
             initPermissionDependentModules()
-        } else {
-            Toast.makeText(this, "Permissions required for Voice AI", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun setupListeners() {
-        binding.micButton.setOnClickListener {
-            if (speechInputManager == null) {
-                checkPermissionsAndInit()
-                return@setOnClickListener
-            }
-            if (isListening) {
-                speechInputManager?.stopListening()
-            } else {
-                ttsManager?.stop()
-                speechInputManager?.startListening()
-                avatarController.updateState(AvatarState.LISTENING)
-                binding.statusText.text = "Listening..."
-            }
-        }
-        
-        // Settings button is now redundant for the key, but we'll keep it for future use
         binding.settingsButton.setOnClickListener {
             Toast.makeText(this, "API Key is hardcoded.", Toast.LENGTH_SHORT).show()
         }
@@ -150,7 +124,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUserInput(input: String) {
         if (input.isBlank()) return
-        
         runOnUiThread {
             binding.statusText.text = "Thinking..."
             avatarController.updateState(AvatarState.THINKING)
@@ -159,38 +132,40 @@ class MainActivity : AppCompatActivity() {
 
         val fullResponse = StringBuilder()
         var sentenceBuffer = StringBuilder()
+        var isTagFound = false
 
         geminiClient?.streamResponse(
             systemInstruction = conversationManager.systemInstruction,
             history = conversationManager.getHistoryJson(),
             onTokenReceived = { token ->
                 fullResponse.append(token)
-                
-                // Detect Emotion Tag
                 if (fullResponse.startsWith("[") && fullResponse.contains("]")) {
                     val tagEnd = fullResponse.indexOf("]")
-                    val tag = fullResponse.substring(1, tagEnd).uppercase()
-                    try {
-                        val expression = AvatarExpression.valueOf(tag)
-                        runOnUiThread { avatarController.setExpression(expression) }
-                    } catch (e: Exception) {}
-                    
-                    val actualContent = fullResponse.substring(tagEnd + 1).trim()
-                    if (actualContent.isNotEmpty()) {
+                    if (!isTagFound) {
+                        val tag = fullResponse.substring(1, tagEnd).uppercase()
+                        try {
+                            val expression = AvatarExpression.valueOf(tag)
+                            runOnUiThread { avatarController.setExpression(expression) }
+                        } catch (e: Exception) {}
+                        isTagFound = true
+                    }
+                    if (token.contains("]")) {
+                        sentenceBuffer.append(token.substring(token.indexOf("]") + 1))
+                    } else if (isTagFound) {
                         sentenceBuffer.append(token)
                     }
-                } else {
+                } else if (!fullResponse.startsWith("[")) {
                     sentenceBuffer.append(token)
                 }
                 
                 if (token.contains(".") || token.contains("!") || token.contains("?")) {
-                    val sentence = sentenceBuffer.toString().trim()
+                    val sentence = sentenceBuffer.toString().trim().replace(Regex("\\[.*?\\]"), "").replace(Regex("\\*.*?\\*"), "")
                     if (sentence.isNotEmpty()) {
                         runOnUiThread {
+                            binding.statusText.text = "Speaking..."
                             if (avatarController.currentState != AvatarState.SPEAKING) {
                                 avatarController.updateState(AvatarState.SPEAKING)
                             }
-                            binding.statusText.text = "Speaking..."
                             ttsManager?.speak(sentence)
                         }
                         sentenceBuffer = StringBuilder()
@@ -198,9 +173,12 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onComplete = {
-                val remaining = sentenceBuffer.toString().trim()
+                val remaining = sentenceBuffer.toString().trim().replace(Regex("\\[.*?\\]"), "").replace(Regex("\\*.*?\\*"), "")
                 if (remaining.isNotEmpty()) {
-                    runOnUiThread { ttsManager?.speak(remaining) }
+                    runOnUiThread { 
+                        binding.statusText.text = "Speaking..."
+                        ttsManager?.speak(remaining)
+                    }
                 }
                 conversationManager.addModelMessage(fullResponse.toString())
             },
@@ -208,7 +186,6 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     Toast.makeText(this, "AI Error: ${error.message}", Toast.LENGTH_SHORT).show()
                     avatarController.updateState(AvatarState.IDLE)
-                    avatarController.setExpression(AvatarExpression.CONFUSED)
                     binding.statusText.text = "Idle"
                 }
             }

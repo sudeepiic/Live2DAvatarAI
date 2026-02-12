@@ -115,6 +115,11 @@ public:
      */
     Csm::Rendering::CubismRenderTarget_OpenGLES2& GetRenderBuffer();
 
+    /**
+     * @brief 手動パラメータの設定
+     */
+    void SetManualParameters(Csm::csmFloat32 mouthY, Csm::csmFloat32 mouthForm, Csm::csmFloat32 bodyX, Csm::csmFloat32 eyeOpen, Csm::csmFloat32 browY);
+
 protected:
     /**
      *  @brief  モデルを描画する処理。モデルを描画する空間のView-Projection行列を渡す。
@@ -183,6 +188,14 @@ private:
     const Csm::CubismId* _idParamBodyAngleX; ///< パラメータID: ParamBodyAngleX
     const Csm::CubismId* _idParamEyeBallX; ///< パラメータID: ParamEyeBallX
     const Csm::CubismId* _idParamEyeBallY; ///< パラメータID: ParamEyeBallXY
+
+    // Manual Parameter Injection
+    Csm::csmFloat32 _manualMouthY;
+    Csm::csmFloat32 _manualMouthForm;
+    Csm::csmFloat32 _manualBodyX;
+    Csm::csmFloat32 _manualEyeOpen;
+    Csm::csmFloat32 _manualBrowY;
+    bool _hasManualUpdate;
 
     Csm::Rendering::CubismRenderTarget_OpenGLES2  _renderBuffer;   ///< フレームバッファ以外の描画先
 };

@@ -54,6 +54,7 @@ class Live2DRenderer : GLSurfaceView.Renderer {
                 try {
                     JniBridgeJava.nativeUpdateParameters(
                         it.mouthOpenY,
+                        it.mouthForm,
                         it.bodyAngleX,
                         it.eyeOpen,
                         it.browY
