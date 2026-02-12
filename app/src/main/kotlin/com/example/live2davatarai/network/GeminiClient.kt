@@ -27,10 +27,10 @@ class GeminiClient(private val apiKey: String) {
             return
         }
 
-        // Use gemini-1.5-flash-latest with v1beta
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:streamGenerateContent?alt=sse&key=${apiKey}"
+        // Use gemini-2.0-flash which is explicitly available for this key
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}"
         
-        Log.d("GeminiClient", "Requesting Gemini API (v1beta/flash-latest)...")
+        Log.d("GeminiClient", "Requesting Gemini API (v1beta/gemini-2.0-flash)...")
 
         val bodyJson = JSONObject().apply {
             put("contents", history)
