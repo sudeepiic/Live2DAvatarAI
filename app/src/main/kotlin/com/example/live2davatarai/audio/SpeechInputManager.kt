@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import java.util.Locale
 
 class SpeechInputManager(
@@ -15,7 +16,7 @@ class SpeechInputManager(
     private val onError: (Int) -> Unit,
     private val onStateChange: (Boolean) -> Unit
 ) {
-    private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+    private var speechRecognizer: SpeechRecognizer? = null
     private val recognizerIntent: Intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
@@ -23,53 +24,78 @@ class SpeechInputManager(
     }
 
     init {
-        speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
-                onStateChange(true)
-            }
-
-            override fun onBeginningOfSpeech() {}
-
-            override fun onRmsChanged(rmsdB: Float) {}
-
-            override fun onBufferReceived(buffer: ByteArray?) {}
-
-            override fun onEndOfSpeech() {
-                onStateChange(false)
-            }
-
-            override fun onError(error: Int) {
-                onError(error)
-                onStateChange(false)
-            }
-
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    onFinalResult(matches[0])
+        try {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    Log.d("SpeechInputManager", "Ready for speech")
+                    onStateChange(true)
                 }
-            }
 
-            override fun onPartialResults(partialResults: Bundle?) {
-                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    onPartialResult(matches[0])
+                override fun onBeginningOfSpeech() {
+                    Log.d("SpeechInputManager", "Speech beginning")
                 }
-            }
 
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
+                override fun onRmsChanged(rmsdB: Float) {}
+
+                override fun onBufferReceived(buffer: ByteArray?) {}
+
+                override fun onEndOfSpeech() {
+                    Log.d("SpeechInputManager", "Speech end")
+                    onStateChange(false)
+                }
+
+                override fun onError(error: Int) {
+                    Log.e("SpeechInputManager", "Error code: $error")
+                    onError(error)
+                    onStateChange(false)
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        Log.d("SpeechInputManager", "Final result: ${matches[0]}")
+                        onFinalResult(matches[0])
+                    }
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        Log.d("SpeechInputManager", "Partial result: ${matches[0]}")
+                        onPartialResult(matches[0])
+                    }
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        } catch (e: Exception) {
+            Log.e("SpeechInputManager", "Initialization error: ${e.message}")
+        }
     }
 
     fun startListening() {
-        speechRecognizer.startListening(recognizerIntent)
+        try {
+            speechRecognizer?.startListening(recognizerIntent)
+        } catch (e: Exception) {
+            Log.e("SpeechInputManager", "Start listening error: ${e.message}")
+        }
     }
 
     fun stopListening() {
-        speechRecognizer.stopListening()
+        try {
+            speechRecognizer?.stopListening()
+        } catch (e: Exception) {
+            Log.e("SpeechInputManager", "Stop listening error: ${e.message}")
+        }
     }
 
     fun destroy() {
-        speechRecognizer.destroy()
+        try {
+            speechRecognizer?.destroy()
+            speechRecognizer = null
+        } catch (e: Exception) {
+            Log.e("SpeechInputManager", "Destroy error: ${e.message}")
+        }
     }
 }

@@ -5,22 +5,24 @@ enum class AvatarState {
 }
 
 enum class AvatarExpression {
-    NEUTRAL, HAPPY, SURPRISED, SLEEPY, SAD, ANGRY
+    NEUTRAL, HAPPY, SURPRISED, SLEEPY, SAD, ANGRY, CONFUSED
 }
 
 class AvatarController {
+    @Volatile
     var currentState: AvatarState = AvatarState.IDLE
         private set
     
+    @Volatile
     var currentExpression: AvatarExpression = AvatarExpression.NEUTRAL
         private set
 
     // Live2D Parameters
-    var mouthOpenY: Float = 0f
-    var bodyAngleX: Float = 0f
-    var eyeBlink: Float = 1f
-    var eyeOpen: Float = 1f // 0 to 1
-    var browY: Float = 0f   // -1 to 1
+    @Volatile var mouthOpenY: Float = 0f
+    @Volatile var bodyAngleX: Float = 0f
+    @Volatile var eyeBlink: Float = 1f
+    @Volatile var eyeOpen: Float = 1f // 0 to 1
+    @Volatile var browY: Float = 0f   // -1 to 1
 
     private var lastUpdate = System.currentTimeMillis()
 
@@ -51,6 +53,7 @@ class AvatarController {
             AvatarExpression.SLEEPY -> { eyeOpen = 0.3f; browY = -0.2f }
             AvatarExpression.SAD -> { eyeOpen = 0.6f; browY = -0.5f }
             AvatarExpression.ANGRY -> { eyeOpen = 0.9f; browY = -0.8f }
+            AvatarExpression.CONFUSED -> { eyeOpen = 0.7f; browY = 0.3f }
         }
 
         // 2. Handle States (Movement logic)
@@ -66,7 +69,7 @@ class AvatarController {
                 bodyAngleX = -5f
             }
             AvatarState.SPEAKING -> {
-                // mouthOpenY is now set externally by AudioAnalyzer
+                // mouthOpenY is set by AudioAnalyzer
             }
         }
     }

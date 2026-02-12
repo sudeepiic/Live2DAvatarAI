@@ -1,5 +1,6 @@
 package com.example.live2davatarai.network
 
+import android.util.Log
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -10,7 +11,7 @@ import java.util.concurrent.TimeUnit
 
 class GeminiClient(private val apiKey: String) {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
         .build()
 
@@ -21,11 +22,21 @@ class GeminiClient(private val apiKey: String) {
         onComplete: () -> Unit,
         onError: (Throwable) -> Unit
     ) {
+        if (apiKey.isEmpty()) {
+            onError(Exception("API Key is missing"))
+            return
+        }
+
+        // v1beta is recommended for gemini-1.5-flash
         val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=$apiKey"
         
+        Log.d("GeminiClient", "Requesting Gemini API...")
+
         val bodyJson = JSONObject().apply {
             put("contents", history)
-            put("system_instruction", JSONObject().put("parts", JSONObject().put("text", systemInstruction)))
+            put("system_instruction", JSONObject().apply {
+                put("parts", JSONArray().put(JSONObject().put("text", systemInstruction)))
+            })
         }
 
         val request = Request.Builder()
@@ -35,21 +46,28 @@ class GeminiClient(private val apiKey: String) {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                Log.e("GeminiClient", "Network Failure", e)
                 onError(e)
             }
 
             override fun onResponse(call: Call, response: Response) {
                 if (!response.isSuccessful) {
-                    onError(IOException("Unexpected code $response"))
+                    val errorBody = response.body?.string() ?: ""
+                    val errorMsg = "API Error ${response.code}: $errorBody"
+                    Log.e("GeminiClient", errorMsg)
+                    onError(IOException(errorMsg))
+                    response.close()
                     return
                 }
 
-                val reader = response.body?.source() ?: return
+                val source = response.body?.source() ?: return
                 try {
-                    while (!reader.exhausted()) {
-                        val line = reader.readUtf8Line() ?: break
+                    while (!source.exhausted()) {
+                        val line = source.readUtf8Line() ?: break
                         if (line.startsWith("data: ")) {
-                            val data = line.substring(6)
+                            val data = line.substring(6).trim()
+                            if (data.isEmpty()) continue
+                            
                             val json = JSONObject(data)
                             val candidates = json.optJSONArray("candidates")
                             if (candidates != null && candidates.length() > 0) {
@@ -66,6 +84,7 @@ class GeminiClient(private val apiKey: String) {
                     }
                     onComplete()
                 } catch (e: Exception) {
+                    Log.e("GeminiClient", "Stream Parsing Error", e)
                     onError(e)
                 } finally {
                     response.close()
