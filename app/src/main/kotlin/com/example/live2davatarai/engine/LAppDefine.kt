@@ -12,5 +12,5 @@ object LAppDefine {
     const val VIEW_LOGICAL_BOTTOM = -1.0f
     const val VIEW_LOGICAL_TOP = 1.0f
 
-    const val MODEL_DIR_NAME = "Hiyori"
+    const val MODEL_DIR_NAME = "wanko"
 }

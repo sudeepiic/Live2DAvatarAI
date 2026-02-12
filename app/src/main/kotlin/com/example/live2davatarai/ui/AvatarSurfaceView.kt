@@ -90,8 +90,8 @@ class Live2DRenderer : GLSurfaceView.Renderer {
         // Basic Math for Layout
         val ratio = width.toFloat() / height.toFloat()
         
-        // Draw Head (Circle)
-        drawCircle(0f, 0f, 0.5f, floatArrayOf(0.9f, 0.8f, 0.7f, 1.0f), ratio)
+        // Draw Head (Circle) - Wanko Brown
+        drawCircle(0f, 0f, 0.5f, floatArrayOf(0.6f, 0.4f, 0.2f, 1.0f), ratio)
 
         // Draw Eyes (Ellipses)
         val eyeColor = when(expression) {
