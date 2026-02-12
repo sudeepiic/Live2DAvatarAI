@@ -21,6 +21,7 @@ import com.example.live2davatarai.engine.AvatarController
 import com.example.live2davatarai.engine.AvatarExpression
 import com.example.live2davatarai.engine.AvatarState
 import com.example.live2davatarai.network.GeminiClient
+import com.live2d.demo.JniBridgeJava
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -39,6 +40,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        JniBridgeJava.SetContext(this)
+        JniBridgeJava.SetActivityInstance(this)
 
         loadApiKey()
         initModules()
@@ -230,8 +234,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        JniBridgeJava.nativeOnStart()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        JniBridgeJava.nativeOnPause()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        JniBridgeJava.nativeOnStop()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        JniBridgeJava.nativeOnDestroy()
         speechInputManager.destroy()
         ttsManager.destroy()
         audioAnalyzer.stop()
