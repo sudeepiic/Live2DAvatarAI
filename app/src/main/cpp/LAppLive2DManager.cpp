@@ -243,7 +243,7 @@ void LAppLive2DManager::ChangeScene(Csm::csmInt32 index)
     }
 
     // model3.jsonのパスを決定する.
-    csmString modelPath(ResourcesPath);
+    csmString modelPath("wanko/");
     csmString modelJsonName("wanko_touch_t02.model3.json");
 
     ReleaseAllModel();

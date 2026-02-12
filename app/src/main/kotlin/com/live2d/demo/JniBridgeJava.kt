@@ -42,6 +42,7 @@ object JniBridgeJava {
 
     @JvmStatic
     fun LoadFile(filePath: String): ByteArray? {
+        android.util.Log.d("JniBridgeJava", "Loading file: '$filePath'")
         return try {
             val inputStream = context?.assets?.open(filePath) ?: return null
             val size = inputStream.available()
