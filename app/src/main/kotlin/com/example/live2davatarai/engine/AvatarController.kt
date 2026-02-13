@@ -40,7 +40,6 @@ class AvatarController {
 
     fun setSpeechAmplitude(amplitude: Float) {
         if (currentState == AvatarState.SPEAKING) {
-            // Boost amplitude sensitivity for Wanko model
             targetMouthY = (amplitude * 1.5f).coerceIn(0f, 1.0f)
         } else {
             targetMouthY = 0f
@@ -55,9 +54,7 @@ class AvatarController {
             // Viseme Mapping: Vary mouth shape (smiling vs wide) to mimic phonemes
             mouthForm = kotlin.math.cos(now / 120.0).toFloat() // Oscillate shape
             
-            if (now % 500 < 20) {
-                android.util.Log.d("AvatarController", "Mouth Target: $targetMouthY, Form: $mouthForm")
-            }
+            // Keep update loop quiet in production
         } else {
             targetMouthY = 0f
             mouthForm = 0f
@@ -65,7 +62,6 @@ class AvatarController {
 
         // Linear interpolation for smooth mouth
         mouthOpenY = mouthOpenY + (targetMouthY - mouthOpenY) * smoothingFactor
-        val deltaTime = (now - lastUpdate) / 1000f
         lastUpdate = now
 
         // 1. Handle Expressions (Facial logic)
@@ -93,6 +89,7 @@ class AvatarController {
             }
             AvatarState.SPEAKING -> {
                 // mouthOpenY is set by AudioAnalyzer
+                bodyAngleX = kotlin.math.sin(now / 900.0).toFloat() * 6f
             }
         }
     }

@@ -119,6 +119,7 @@ public:
      * @brief 手動パラメータの設定
      */
     void SetManualParameters(Csm::csmFloat32 mouthY, Csm::csmFloat32 mouthForm, Csm::csmFloat32 bodyX, Csm::csmFloat32 eyeOpen, Csm::csmFloat32 browY);
+    void SetIdleEnabled(bool enabled);
 
 protected:
     /**
@@ -196,6 +197,7 @@ private:
     Csm::csmFloat32 _manualEyeOpen;
     Csm::csmFloat32 _manualBrowY;
     bool _hasManualUpdate;
+    bool _idleEnabled;
 
     Csm::Rendering::CubismRenderTarget_OpenGLES2  _renderBuffer;   ///< フレームバッファ以外の描画先
 };

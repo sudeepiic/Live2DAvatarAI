@@ -3,6 +3,7 @@ package com.live2d.demo
 import android.app.Activity
 import android.content.Context
 import java.io.IOException
+import com.example.live2davatarai.util.LogUtil
 
 object JniBridgeJava {
     @JvmStatic external fun nativeOnStart()
@@ -13,6 +14,7 @@ object JniBridgeJava {
     @JvmStatic external fun nativeOnSurfaceChanged(width: Int, height: Int)
     @JvmStatic external fun nativeOnDrawFrame()
     @JvmStatic external fun nativeUpdateParameters(mouthOpenY: Float, mouthForm: Float, bodyAngleX: Float, eyeOpen: Float, browY: Float)
+    @JvmStatic external fun nativeSetIdleEnabled(enabled: Boolean)
     @JvmStatic external fun nativeOnTouchesBegan(pointX: Float, pointY: Float)
     @JvmStatic external fun nativeOnTouchesEnded(pointX: Float, pointY: Float)
     @JvmStatic external fun nativeOnTouchesMoved(pointX: Float, pointY: Float)
@@ -42,7 +44,7 @@ object JniBridgeJava {
 
     @JvmStatic
     fun LoadFile(filePath: String): ByteArray? {
-        android.util.Log.d("JniBridgeJava", "Loading file: '$filePath'")
+        LogUtil.d("JniBridgeJava", "Loading file")
         return try {
             val inputStream = context?.assets?.open(filePath) ?: return null
             val size = inputStream.available()

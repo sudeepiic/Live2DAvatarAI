@@ -159,6 +159,12 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
+    Java_com_live2d_demo_JniBridgeJava_nativeSetIdleEnabled(JNIEnv *env, jclass type, jboolean enabled)
+    {
+        LAppLive2DManager::GetInstance()->SetIdleEnabled(enabled);
+    }
+
+    JNIEXPORT void JNICALL
     Java_com_live2d_demo_JniBridgeJava_nativeOnTouchesBegan(JNIEnv *env, jclass type, jfloat pointX, jfloat pointY)
     {
         LAppDelegate::GetInstance()->OnTouchBegan(pointX, pointY);

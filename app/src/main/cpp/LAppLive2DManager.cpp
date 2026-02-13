@@ -176,6 +176,15 @@ void LAppLive2DManager::OnTap(csmFloat32 x, csmFloat32 y)
     }
 }
 
+void LAppLive2DManager::SetIdleEnabled(bool enabled)
+{
+    for (csmUint32 i = 0; i < _models.GetSize(); i++)
+    {
+        LAppModel* model = GetModel(i);
+        model->SetIdleEnabled(enabled);
+    }
+}
+
 void LAppLive2DManager::OnUpdate() const
 {
     int width = LAppDelegate::GetInstance()->GetWindowWidth();

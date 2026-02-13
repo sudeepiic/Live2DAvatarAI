@@ -82,6 +82,11 @@ public:
     void OnTap(Csm::csmFloat32 x, Csm::csmFloat32 y);
 
     /**
+     * @brief   Enable/disable idle motions for all models
+     */
+    void SetIdleEnabled(bool enabled);
+
+    /**
     * @brief   画面を更新するときの処理
     *          モデルの更新処理および描画処理を行う
     */

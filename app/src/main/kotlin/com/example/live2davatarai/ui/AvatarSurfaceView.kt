@@ -52,6 +52,7 @@ class Live2DRenderer : GLSurfaceView.Renderer {
             it.updateAnimations()
             if (JniBridgeJava.isReady()) {
                 try {
+                    JniBridgeJava.nativeSetIdleEnabled(it.currentState != AvatarState.SPEAKING)
                     JniBridgeJava.nativeUpdateParameters(
                         it.mouthOpenY,
                         it.mouthForm,

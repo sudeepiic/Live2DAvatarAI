@@ -35,6 +35,7 @@ LAppModel::LAppModel()
     , _manualEyeOpen(1.0f)
     , _manualBrowY(0.0f)
     , _hasManualUpdate(false)
+    , _idleEnabled(true)
 {
     if (DebugLogEnable)
     {
@@ -357,8 +358,11 @@ void LAppModel::Update()
     _model->LoadParameters(); // 前回セーブされた状態をロード
     if (_motionManager->IsFinished())
     {
-        // モーションの再生がない場合、待機モーションの中からランダムで再生する
-        StartRandomMotion(MotionGroupIdle, PriorityIdle);
+        if (_idleEnabled)
+        {
+            // モーションの再生がない場合、待機モーションの中からランダムで再生する
+            StartRandomMotion(MotionGroupIdle, PriorityIdle);
+        }
     }
     else
     {
@@ -656,4 +660,17 @@ void LAppModel::SetManualParameters(Csm::csmFloat32 mouthY, Csm::csmFloat32 mout
     _manualEyeOpen = eyeOpen;
     _manualBrowY = browY;
     _hasManualUpdate = true;
+}
+
+void LAppModel::SetIdleEnabled(bool enabled)
+{
+    if (_idleEnabled == enabled)
+    {
+        return;
+    }
+    _idleEnabled = enabled;
+    if (!enabled)
+    {
+        _motionManager->StopAllMotions();
+    }
 }
