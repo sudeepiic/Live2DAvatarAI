@@ -183,20 +183,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun triggerMotion(group: String, priority: Int = 2) {
+        LogUtil.d("MainActivity", "Trigger motion: $group")
         if (JniBridgeJava.isReady()) {
             try { JniBridgeJava.nativeStartMotion(group, priority) } catch (_: Throwable) {}
+        } else {
+            mainHandler.postDelayed({
+                if (JniBridgeJava.isReady()) {
+                    try { JniBridgeJava.nativeStartMotion(group, priority) } catch (_: Throwable) {}
+                }
+            }, 300L)
         }
     }
 
     private fun triggerExpression(name: String) {
+        LogUtil.d("MainActivity", "Trigger expression: $name")
         if (JniBridgeJava.isReady()) {
             try { JniBridgeJava.nativeSetExpression(name) } catch (_: Throwable) {}
+        } else {
+            mainHandler.postDelayed({
+                if (JniBridgeJava.isReady()) {
+                    try { JniBridgeJava.nativeSetExpression(name) } catch (_: Throwable) {}
+                }
+            }, 300L)
         }
     }
 
     private fun handleUserInput(input: String) {
         if (input.isBlank()) return
         LogUtil.d("MainActivity", "handleUserInput()")
+        LogUtil.d("MainActivity", "UserInput: $input")
         resetIdleSchedule()
         handleLocalCommand(input)
         runOnUiThread {
