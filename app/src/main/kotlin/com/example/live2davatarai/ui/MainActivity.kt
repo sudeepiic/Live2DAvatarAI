@@ -393,24 +393,36 @@ class MainActivity : AppCompatActivity() {
     private fun handleLocalCommand(input: String) {
         val text = input.lowercase()
         when {
-            text.contains("dance") -> triggerMotion("Dance")
-            text.contains("walk") -> triggerMotion("Walk")
-            text.contains("jump") -> triggerMotion("Jump")
-            text.contains("idle") -> triggerMotion("Idle")
+            !isNegated(text, "dance") && text.contains("dance") -> triggerMotion("Dance")
+            !isNegated(text, "walk") && text.contains("walk") -> triggerMotion("Walk")
+            !isNegated(text, "jump") && text.contains("jump") -> triggerMotion("Jump")
+            !isNegated(text, "idle") && text.contains("idle") -> triggerMotion("Idle")
         }
         when {
-            text.contains("blush") -> triggerExpression("EXP 9 [BLUSH]")
-            text.contains("love") -> triggerExpression("EXP 1 [LOVE]")
-            text.contains("excited") -> triggerExpression("EXP 2 [EXCITED]")
-            text.contains("sad") -> triggerExpression("EXP 3 [SAD]")
-            text.contains("pout") -> triggerExpression("EXP 4 [POUT]")
-            text.contains("angry") -> triggerExpression("EXP 5 [ANGRY]")
-            text.contains("shocked") -> triggerExpression("EXP 6 [SHOCKED]")
-            text.contains("confused") -> triggerExpression("EXP 7 [CONFUSED]")
-            text.contains("scared") -> triggerExpression("EXP 8 [SCARED]")
-            text.contains("yandere") -> triggerExpression("EXP 10 [YANDERE]")
-            text.contains("chibi") -> triggerExpression("chibi")
+            !isNegated(text, "blush") && text.contains("blush") -> triggerExpression("EXP 9 [BLUSH]")
+            !isNegated(text, "love") && text.contains("love") -> triggerExpression("EXP 1 [LOVE]")
+            !isNegated(text, "excited") && text.contains("excited") -> triggerExpression("EXP 2 [EXCITED]")
+            !isNegated(text, "sad") && text.contains("sad") -> triggerExpression("EXP 3 [SAD]")
+            !isNegated(text, "pout") && text.contains("pout") -> triggerExpression("EXP 4 [POUT]")
+            !isNegated(text, "angry") && text.contains("angry") -> triggerExpression("EXP 5 [ANGRY]")
+            !isNegated(text, "shocked") && text.contains("shocked") -> triggerExpression("EXP 6 [SHOCKED]")
+            !isNegated(text, "confused") && text.contains("confused") -> triggerExpression("EXP 7 [CONFUSED]")
+            !isNegated(text, "scared") && text.contains("scared") -> triggerExpression("EXP 8 [SCARED]")
+            !isNegated(text, "yandere") && text.contains("yandere") -> triggerExpression("EXP 10 [YANDERE]")
+            !isNegated(text, "chibi") && text.contains("chibi") -> triggerExpression("chibi")
         }
+    }
+
+    private fun isNegated(text: String, keyword: String): Boolean {
+        val idx = text.indexOf(keyword)
+        if (idx == -1) return false
+        val windowStart = (idx - 12).coerceAtLeast(0)
+        val window = text.substring(windowStart, idx)
+        return window.contains("not ")
+            || window.contains("don't ")
+            || window.contains("do not ")
+            || window.contains("no ")
+            || window.contains("never ")
     }
 
     private fun updateUIState() {
