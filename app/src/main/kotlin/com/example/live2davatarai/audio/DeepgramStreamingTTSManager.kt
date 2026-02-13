@@ -324,8 +324,12 @@ class DeepgramStreamingTTSManager(
     fun enqueue(text: String) {
         if (text.isBlank()) return
         if (isSessionActive) {
-            // startStream() owns the connection; just queue until onOpen
-            pendingSpeakText = text
+            // startStream() owns the connection; send immediately if connected
+            if (isConnected && webSocket != null) {
+                sendToWs(text)
+            } else {
+                pendingSpeakText = text
+            }
             return
         }
         val socket = webSocket
@@ -353,6 +357,9 @@ class DeepgramStreamingTTSManager(
                 offerPendingText(text)
                 pendingSpeakText = text
                 if (!isConnecting && webSocket == null) connect()
+            } else if (pendingFlush) {
+                sendFlush()
+                pendingFlush = false
             }
         } catch (e: Exception) {
             LogUtil.e(TAG, "Send Error: ${e.message}")
@@ -367,7 +374,7 @@ class DeepgramStreamingTTSManager(
         isTextFinished = true
         tEndStreamMs.compareAndSet(0, System.currentTimeMillis())
         pendingClose = true
-        if (isConnected) {
+        if (isConnected && pendingSpeakText == null) {
             sendFlush()
         } else {
             pendingFlush = true
