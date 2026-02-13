@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             // Stop any ongoing speech immediately to prevent self-hearing (bleeding)
             ttsManager?.stop()
 
+            ttsManager?.warmConnect()
             speechInputManager?.startListening()
             avatarController.updateState(AvatarState.LISTENING)
             binding.statusText.text = "Listening..."
@@ -211,10 +212,10 @@ class MainActivity : AppCompatActivity() {
             if (activeRequestId != requestId) return@postDelayed
             if (!firstChunkSent && !gotAnyToken) {
                 // Pre-seed to mask initial silence on slow token starts.
-                ttsManager?.enqueue("Hmm.")
+                ttsManager?.enqueue("hmm...")
                 firstChunkSent = true
             }
-        }, 600L)
+        }, 350L)
 
         aiClient?.streamResponse(
             systemInstruction = conversationManager.systemInstruction,
