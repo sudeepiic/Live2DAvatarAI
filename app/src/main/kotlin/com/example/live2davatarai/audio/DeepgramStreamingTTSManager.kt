@@ -75,7 +75,7 @@ class DeepgramStreamingTTSManager(
     companion object {
         private const val TAG = "DeepgramTTS"
         private const val SAMPLE_RATE = 24000
-        private const val MODEL = "aura-asteria-en"
+        private const val MODEL = "aura-2-thalia-en"
         private const val WS_URL = "wss://api.deepgram.com/v1/speak?model=$MODEL&encoding=linear16&sample_rate=$SAMPLE_RATE&container=none"
         private const val STREAMING_PLAYBACK = true
     }
