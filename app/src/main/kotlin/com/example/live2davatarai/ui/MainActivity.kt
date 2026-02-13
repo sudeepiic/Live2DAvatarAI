@@ -98,6 +98,7 @@ class MainActivity : AppCompatActivity() {
                     binding.statusText.text = "Idle"
                 }
             }
+            ttsManager?.warmConnect()
             audioAnalyzer = AudioAnalyzer { amplitude -> avatarController.setSpeechAmplitude(amplitude) }
             audioAnalyzer?.start(ttsManager?.getAudioSessionId() ?: 0)
             
@@ -296,6 +297,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnStart() } catch (t: Throwable) {}
+        ttsManager?.warmConnect()
     }
 
     override fun onPause() {

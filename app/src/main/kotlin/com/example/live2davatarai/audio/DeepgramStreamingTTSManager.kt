@@ -313,11 +313,17 @@ class DeepgramStreamingTTSManager(
         })
     }
 
+    fun warmConnect() {
+        LogUtil.d(TAG, "warmConnect()")
+        if (!isConnected && !isConnecting) {
+            connect()
+        }
+    }
+
     fun startStream() {
         LogUtil.d(TAG, "--- Session Start ---")
         stopPlayback()
-        // Best practice: one websocket per conversation
-        disconnect()
+        // Keep websocket warm if already connected to reduce first-utterance latency
         
         isSessionActive = true
         isTextFinished = false
