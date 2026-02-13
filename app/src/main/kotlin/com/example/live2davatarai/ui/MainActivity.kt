@@ -198,6 +198,7 @@ class MainActivity : AppCompatActivity() {
         if (input.isBlank()) return
         LogUtil.d("MainActivity", "handleUserInput()")
         resetIdleSchedule()
+        handleLocalCommand(input)
         runOnUiThread {
             binding.statusText.text = "Heard: ${input.take(80)}"
             avatarController.updateState(AvatarState.THINKING)
@@ -386,6 +387,29 @@ class MainActivity : AppCompatActivity() {
         val exprMatch = Regex("\\[EXPR:([^\\]]+)]").find(token)
         if (exprMatch != null) {
             triggerExpression(exprMatch.groupValues[1].trim())
+        }
+    }
+
+    private fun handleLocalCommand(input: String) {
+        val text = input.lowercase()
+        when {
+            text.contains("dance") -> triggerMotion("Dance")
+            text.contains("walk") -> triggerMotion("Walk")
+            text.contains("jump") -> triggerMotion("Jump")
+            text.contains("idle") -> triggerMotion("Idle")
+        }
+        when {
+            text.contains("blush") -> triggerExpression("EXP 9 [BLUSH]")
+            text.contains("love") -> triggerExpression("EXP 1 [LOVE]")
+            text.contains("excited") -> triggerExpression("EXP 2 [EXCITED]")
+            text.contains("sad") -> triggerExpression("EXP 3 [SAD]")
+            text.contains("pout") -> triggerExpression("EXP 4 [POUT]")
+            text.contains("angry") -> triggerExpression("EXP 5 [ANGRY]")
+            text.contains("shocked") -> triggerExpression("EXP 6 [SHOCKED]")
+            text.contains("confused") -> triggerExpression("EXP 7 [CONFUSED]")
+            text.contains("scared") -> triggerExpression("EXP 8 [SCARED]")
+            text.contains("yandere") -> triggerExpression("EXP 10 [YANDERE]")
+            text.contains("chibi") -> triggerExpression("chibi")
         }
     }
 
