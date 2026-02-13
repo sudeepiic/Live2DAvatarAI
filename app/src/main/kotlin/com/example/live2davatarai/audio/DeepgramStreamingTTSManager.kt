@@ -323,10 +323,15 @@ class DeepgramStreamingTTSManager(
 
     fun enqueue(text: String) {
         if (text.isBlank()) return
+        if (isSessionActive) {
+            // startStream() owns the connection; just queue until onOpen
+            pendingSpeakText = text
+            return
+        }
         val socket = webSocket
         if (!isConnected || socket == null) {
             pendingSpeakText = text
-            connect()
+            if (!isConnecting) connect()
             return
         }
         sendToWs(text)
