@@ -6,6 +6,12 @@ plugins {
 android {
     namespace = "com.example.live2davatarai"
     compileSdk = 34
+    val localProps = java.util.Properties().apply {
+        val propsFile = rootProject.file("local.properties")
+        if (propsFile.exists()) {
+            propsFile.inputStream().use { load(it) }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.example.live2davatarai"
@@ -15,6 +21,17 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "OPENAI_API_KEY",
+            "\"${localProps.getProperty("OPENAI_API_KEY", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "DEEPGRAM_API_KEY",
+            "\"${localProps.getProperty("DEEPGRAM_API_KEY", "")}\""
+        )
     }
 
     buildTypes {
@@ -32,6 +49,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     externalNativeBuild {

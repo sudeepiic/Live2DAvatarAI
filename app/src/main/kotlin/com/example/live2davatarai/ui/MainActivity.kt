@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.live2davatarai.BuildConfig
 import com.example.live2davatarai.audio.AudioAnalyzer
 import com.example.live2davatarai.audio.SpeechInputManager
 import com.example.live2davatarai.audio.DeepgramStreamingTTSManager
@@ -32,8 +33,8 @@ class MainActivity : AppCompatActivity() {
     private val PERMISSION_REQUEST_CODE = 100
     private var isListening = false
 
-    private val deepgramApiKey = "REDACTED"
-    private val openAiApiKey = "REDACTED"
+    private val deepgramApiKey = BuildConfig.DEEPGRAM_API_KEY
+    private val openAiApiKey = BuildConfig.OPENAI_API_KEY
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
