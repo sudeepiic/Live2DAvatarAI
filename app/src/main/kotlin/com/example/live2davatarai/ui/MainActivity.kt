@@ -196,15 +196,7 @@ class MainActivity : AppCompatActivity() {
             },
             onComplete = {
                 LogUtil.d("MainActivity", "AI stream complete")
-                val remainingFromTokens = speakBuffer.toString().trim()
-                val remaining = if (remainingFromTokens.isNotEmpty()) {
-                    remainingFromTokens
-                } else {
-                    fullResponse.toString().trim()
-                        .replace(Regex("\\[.*?\\]"), "")
-                        .replace(Regex("\\*.*?\\*"), "")
-                        .trim()
-                }
+                val remaining = speakBuffer.toString().trim()
                     .replace(Regex("\\[.*?\\]"), "")
                     .replace(Regex("\\*.*?\\*"), "")
                     .trim()
