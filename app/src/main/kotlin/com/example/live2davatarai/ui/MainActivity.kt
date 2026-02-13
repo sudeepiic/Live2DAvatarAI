@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity() {
                 // Stream chunks to TTS with low latency but avoid micro-chunks
                 val buf = speakBuffer.toString()
                 val hasSentenceEnd = buf.contains('.') || buf.contains('!') || buf.contains('?') || buf.contains('\n')
-                if (!firstChunkSent && (hasSentenceEnd || buf.length >= 8)) {
+                if (!firstChunkSent && (hasSentenceEnd || buf.length >= 4)) {
                     val chunk = buf.trim()
                     if (chunk.isNotEmpty()) {
                         ttsManager?.enqueue(chunk)
