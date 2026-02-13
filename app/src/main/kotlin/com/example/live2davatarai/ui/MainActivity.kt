@@ -160,6 +160,7 @@ class MainActivity : AppCompatActivity() {
         val fullResponse = StringBuilder()
         var isTagFound = false
         val speakBuffer = StringBuilder()
+        val displayBuffer = StringBuilder()
         var inTag = false
         var gotAnyToken = false
         var lastTokenTimeMs = SystemClock.uptimeMillis()
@@ -229,7 +230,10 @@ class MainActivity : AppCompatActivity() {
                     when {
                         ch == '[' -> inTag = true
                         ch == ']' -> inTag = false
-                        !inTag -> speakBuffer.append(ch)
+                        !inTag -> {
+                            speakBuffer.append(ch)
+                            displayBuffer.append(ch)
+                        }
                     }
                 }
 
@@ -264,7 +268,7 @@ class MainActivity : AppCompatActivity() {
 
                 val now = SystemClock.uptimeMillis()
                 if (now - lastUiUpdateMs > 120L) {
-                    val preview = speakBuffer.toString()
+                    val preview = displayBuffer.toString()
                         .replace(Regex("\\s+"), " ")
                         .trim()
                         .takeLast(120)
@@ -283,8 +287,13 @@ class MainActivity : AppCompatActivity() {
                     .trim()
                 
                 runOnUiThread {
+                    val finalPreview = displayBuffer.toString()
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                    if (finalPreview.isNotEmpty()) {
+                        binding.statusText.text = finalPreview.takeLast(200)
+                    }
                     if (remaining.isNotEmpty()) {
-                        binding.statusText.text = "Speaking: $remaining"
                         ttsManager?.enqueue(remaining)
                     }
                     // ONLY signal end when the AI is completely finished AND final sentence is queued
