@@ -161,6 +161,7 @@ class MainActivity : AppCompatActivity() {
         var inTag = false
         var gotAnyToken = false
         var lastTokenTimeMs = SystemClock.uptimeMillis()
+        var lastUiUpdateMs = 0L
 
         // CRITICAL: Force state to SPEAKING immediately and don't let it flicker
         runOnUiThread {
@@ -241,6 +242,18 @@ class MainActivity : AppCompatActivity() {
                         ttsManager?.enqueue(chunk)
                     }
                     speakBuffer.clear()
+                }
+
+                val now = SystemClock.uptimeMillis()
+                if (now - lastUiUpdateMs > 120L) {
+                    val preview = speakBuffer.toString()
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                        .takeLast(120)
+                    if (preview.isNotEmpty()) {
+                        runOnUiThread { binding.statusText.text = preview }
+                        lastUiUpdateMs = now
+                    }
                 }
             },
             onComplete = {
