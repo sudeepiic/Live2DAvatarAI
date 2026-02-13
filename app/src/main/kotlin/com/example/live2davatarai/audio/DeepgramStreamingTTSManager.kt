@@ -346,9 +346,19 @@ class DeepgramStreamingTTSManager(
         if (text.isNullOrBlank()) return
         Thread {
             try { Thread.sleep(1600) } catch (_: Exception) {}
-            if (sessionCounter.get() != sessionId) return@Thread
-            if (lastAudioTimeMs.get() != 0L) return@Thread
-            if (fallbackTriggered) return@Thread
+            LogUtil.d(TAG, "Fallback check: sessionId=$sessionId current=${sessionCounter.get()} lastAudio=${lastAudioTimeMs.get()} triggered=$fallbackTriggered")
+            if (sessionCounter.get() != sessionId) {
+                LogUtil.d(TAG, "Fallback abort: session changed")
+                return@Thread
+            }
+            if (lastAudioTimeMs.get() != 0L) {
+                LogUtil.d(TAG, "Fallback abort: audio already arrived")
+                return@Thread
+            }
+            if (fallbackTriggered) {
+                LogUtil.d(TAG, "Fallback abort: already triggered")
+                return@Thread
+            }
             fallbackTriggered = true
             val bytes = fetchRawAudioFallback(text)
             if (bytes != null && bytes.isNotEmpty()) {
