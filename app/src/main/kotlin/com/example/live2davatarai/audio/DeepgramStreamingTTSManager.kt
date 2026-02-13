@@ -68,6 +68,10 @@ class DeepgramStreamingTTSManager(
     private val tFirstAudioMs = AtomicLong(0)
     private val tFirstPlayMs = AtomicLong(0)
     private val tEndStreamMs = AtomicLong(0)
+    private val tStartStreamMs = AtomicLong(0)
+    private val tFirstSpeakMs = AtomicLong(0)
+    private val tStartStreamMs = AtomicLong(0)
+    private val tFirstSpeakMs = AtomicLong(0)
 
     companion object {
         private const val TAG = "DeepgramTTS"
@@ -173,6 +177,14 @@ class DeepgramStreamingTTSManager(
                         if (end > 0) {
                             LogUtil.d(TAG, "Latency: endStream->firstAudio=${tFirstAudioMs.get() - end}ms")
                         }
+                        val start = tStartStreamMs.get()
+                        if (start > 0) {
+                            LogUtil.d(TAG, "Latency: startStream->firstAudio=${tFirstAudioMs.get() - start}ms")
+                        }
+                        val firstSpeak = tFirstSpeakMs.get()
+                        if (firstSpeak > 0) {
+                            LogUtil.d(TAG, "Latency: firstSpeak->firstAudio=${tFirstAudioMs.get() - firstSpeak}ms")
+                        }
                     }
                     totalAudioBytes.addAndGet(data.size.toLong())
                     LogUtil.d(TAG, "WS audio bytes=${data.size} total=${totalAudioBytes.get()}")
@@ -189,6 +201,14 @@ class DeepgramStreamingTTSManager(
                                 val end = tEndStreamMs.get()
                                 if (end > 0) {
                                     LogUtil.d(TAG, "Latency: endStream->firstPlay=${tFirstPlayMs.get() - end}ms")
+                                }
+                                val start = tStartStreamMs.get()
+                                if (start > 0) {
+                                    LogUtil.d(TAG, "Latency: startStream->firstPlay=${tFirstPlayMs.get() - start}ms")
+                                }
+                                val firstSpeak = tFirstSpeakMs.get()
+                                if (firstSpeak > 0) {
+                                    LogUtil.d(TAG, "Latency: firstSpeak->firstPlay=${tFirstPlayMs.get() - firstSpeak}ms")
                                 }
                             }
                         }
@@ -224,6 +244,14 @@ class DeepgramStreamingTTSManager(
                                     if (end > 0) {
                                         LogUtil.d(TAG, "Latency: endStream->firstAudio=${tFirstAudioMs.get() - end}ms")
                                     }
+                                    val start = tStartStreamMs.get()
+                                    if (start > 0) {
+                                        LogUtil.d(TAG, "Latency: startStream->firstAudio=${tFirstAudioMs.get() - start}ms")
+                                    }
+                                    val firstSpeak = tFirstSpeakMs.get()
+                                    if (firstSpeak > 0) {
+                                        LogUtil.d(TAG, "Latency: firstSpeak->firstAudio=${tFirstAudioMs.get() - firstSpeak}ms")
+                                    }
                                 }
                                 totalAudioBytes.addAndGet(data.size.toLong())
                                 LogUtil.d(TAG, "WS audio(b64) bytes=${data.size} total=${totalAudioBytes.get()}")
@@ -240,6 +268,14 @@ class DeepgramStreamingTTSManager(
                                             val end = tEndStreamMs.get()
                                             if (end > 0) {
                                                 LogUtil.d(TAG, "Latency: endStream->firstPlay=${tFirstPlayMs.get() - end}ms")
+                                            }
+                                            val start = tStartStreamMs.get()
+                                            if (start > 0) {
+                                                LogUtil.d(TAG, "Latency: startStream->firstPlay=${tFirstPlayMs.get() - start}ms")
+                                            }
+                                            val firstSpeak = tFirstSpeakMs.get()
+                                            if (firstSpeak > 0) {
+                                                LogUtil.d(TAG, "Latency: firstSpeak->firstPlay=${tFirstPlayMs.get() - firstSpeak}ms")
                                             }
                                         }
                                     }
@@ -299,6 +335,8 @@ class DeepgramStreamingTTSManager(
         tFirstAudioMs.set(0)
         tFirstPlayMs.set(0)
         tEndStreamMs.set(0)
+        tStartStreamMs.set(System.currentTimeMillis())
+        tFirstSpeakMs.set(0)
         synchronized(audioBuffer) {
             audioBuffer.reset()
         }
@@ -328,7 +366,8 @@ class DeepgramStreamingTTSManager(
             if (isConnected && webSocket != null) {
                 sendToWs(text)
             } else {
-                pendingSpeakText = text
+                offerPendingText(text)
+                if (!isConnecting && webSocket == null) connect()
             }
             return
         }
@@ -349,6 +388,12 @@ class DeepgramStreamingTTSManager(
             }
             val ok = webSocket?.send(msg.toString()) ?: false
             lastSpeakTimeMs.set(System.currentTimeMillis())
+            if (tFirstSpeakMs.compareAndSet(0, System.currentTimeMillis())) {
+                val start = tStartStreamMs.get()
+                if (start > 0) {
+                    LogUtil.d(TAG, "Latency: startStream->firstSpeak=${tFirstSpeakMs.get() - start}ms")
+                }
+            }
             lastSpeakText = text
             fallbackTriggered = false
             LogUtil.d(TAG, "Speak send ok=$ok len=${text.length}")
