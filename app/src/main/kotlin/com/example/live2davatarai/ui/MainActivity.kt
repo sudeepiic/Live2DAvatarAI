@@ -25,6 +25,41 @@ import com.live2d.demo.JniBridgeJava
 class MainActivity : AppCompatActivity() {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     @Volatile private var activeRequestId: Long = 0L
+    private var lastInteractionMs: Long = 0L
+    private var idleStage: Int = 0
+    private var idleStage1Ms: Long = 0L
+    private var idleStage2Ms: Long = 0L
+    private var idleStage3Ms: Long = 0L
+    private var idleStage4Ms: Long = 0L
+    private val idleRunnable = object : Runnable {
+        override fun run() {
+            val now = SystemClock.uptimeMillis()
+            val elapsed = now - lastInteractionMs
+            if (isListening || avatarController.currentState == AvatarState.SPEAKING || avatarController.currentState == AvatarState.THINKING) {
+                mainHandler.postDelayed(this, 1000L)
+                return
+            }
+            when (idleStage) {
+                0 -> if (elapsed >= idleStage1Ms) {
+                    triggerMotion("Idle")
+                    idleStage = 1
+                }
+                1 -> if (elapsed >= idleStage2Ms) {
+                    triggerMotion("Walk")
+                    idleStage = 2
+                }
+                2 -> if (elapsed >= idleStage3Ms) {
+                    triggerMotion("Jump")
+                    idleStage = 3
+                }
+                3 -> if (elapsed >= idleStage4Ms) {
+                    triggerExpression("ACC 2 [BRB]")
+                    idleStage = 4
+                }
+            }
+            mainHandler.postDelayed(this, 1000L)
+        }
+    }
     private lateinit var binding: ActivityMainBinding
     private var speechInputManager: SpeechInputManager? = null
     private var ttsManager: DeepgramStreamingTTSManager? = null
@@ -137,9 +172,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun resetIdleSchedule() {
+        val rand = kotlin.random.Random
+        lastInteractionMs = SystemClock.uptimeMillis()
+        idleStage = 0
+        idleStage1Ms = rand.nextLong(5000L, 15001L)
+        idleStage2Ms = rand.nextLong(20000L, 40001L)
+        idleStage3Ms = rand.nextLong(120000L, 180001L)
+        idleStage4Ms = rand.nextLong(180000L, 300001L)
+    }
+
+    private fun triggerMotion(group: String, priority: Int = 2) {
+        if (JniBridgeJava.isReady()) {
+            try { JniBridgeJava.nativeStartMotion(group, priority) } catch (_: Throwable) {}
+        }
+    }
+
+    private fun triggerExpression(name: String) {
+        if (JniBridgeJava.isReady()) {
+            try { JniBridgeJava.nativeSetExpression(name) } catch (_: Throwable) {}
+        }
+    }
+
     private fun handleUserInput(input: String) {
         if (input.isBlank()) return
         LogUtil.d("MainActivity", "handleUserInput()")
+        resetIdleSchedule()
         runOnUiThread {
             binding.statusText.text = "Heard: ${input.take(80)}"
             avatarController.updateState(AvatarState.THINKING)
@@ -225,6 +283,7 @@ class MainActivity : AppCompatActivity() {
                 gotAnyToken = true
                 lastTokenTimeMs = SystemClock.uptimeMillis()
                 fullResponse.append(token)
+                parseAndTriggerTags(token)
                 // Stream-safe tag filtering: ignore text between [ and ]
                 for (ch in token) {
                     when {
@@ -281,6 +340,7 @@ class MainActivity : AppCompatActivity() {
             onComplete = {
                 LogUtil.d("MainActivity", "AI stream complete")
                 activeRequestId = 0L
+                resetIdleSchedule()
                 val remaining = speakBuffer.toString().trim()
                     .replace(Regex("\\[.*?\\]"), "")
                     .replace(Regex("\\*.*?\\*"), "")
@@ -303,6 +363,7 @@ class MainActivity : AppCompatActivity() {
             },
             onError = { error ->
                 activeRequestId = 0L
+                resetIdleSchedule()
                 runOnUiThread {
                     Toast.makeText(this, "AI Error: ${error.message}", Toast.LENGTH_SHORT).show()
                     avatarController.updateState(AvatarState.IDLE)
@@ -310,6 +371,22 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun parseAndTriggerTags(token: String) {
+        val motionMatch = Regex("\\[MOTION:([A-Z_]+)]").find(token)
+        if (motionMatch != null) {
+            when (motionMatch.groupValues[1]) {
+                "DANCE" -> triggerMotion("Dance")
+                "WALK" -> triggerMotion("Walk")
+                "JUMP" -> triggerMotion("Jump")
+                "IDLE" -> triggerMotion("Idle")
+            }
+        }
+        val exprMatch = Regex("\\[EXPR:([^\\]]+)]").find(token)
+        if (exprMatch != null) {
+            triggerExpression(exprMatch.groupValues[1].trim())
+        }
     }
 
     private fun updateUIState() {
@@ -324,6 +401,8 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnStart() } catch (t: Throwable) {}
         ttsManager?.warmConnect()
+        resetIdleSchedule()
+        mainHandler.post(idleRunnable)
     }
 
     override fun onPause() {
@@ -336,6 +415,7 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
         try { if (JniBridgeJava.isReady()) JniBridgeJava.nativeOnStop() } catch (t: Throwable) {}
         ttsManager?.disconnect()
+        mainHandler.removeCallbacks(idleRunnable)
     }
 
     override fun onDestroy() {

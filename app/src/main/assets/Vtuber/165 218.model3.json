@@ -10,6 +10,31 @@
     ],
     "Physics": "165 218.physics3.json",
     "DisplayInfo": "165 218.cdi3.json",
+    "Motions": {
+      "Dance": [
+        {
+          "File": "motion/02 dance 2b.motion3.json"
+        }
+      ],
+      "Idle": [
+        {
+          "File": "motion/idle.motion3.json"
+        }
+      ],
+      "Jump": [
+        {
+          "File": "motion/jump 2b.motion3.json"
+        },
+        {
+          "File": "motion/normal jump.motion3.json"
+        }
+      ],
+      "Walk": [
+        {
+          "File": "motion/walk 2b.motion3.json"
+        }
+      ]
+    },
     "Expressions": [
       {
         "Name": "02 dance 2b.exp3",
@@ -83,26 +108,7 @@
         "Name": "walk 2b.exp3",
         "File": "exp/walk 2b.exp3.json"
       }
-    ],
-    "Motions": {
-      "Idle": [
-        {
-          "File": "motion/02 dance 2b.motion3.json"
-        },
-        {
-          "File": "motion/idle.motion3.json"
-        },
-        {
-          "File": "motion/jump 2b.motion3.json"
-        },
-        {
-          "File": "motion/normal jump.motion3.json"
-        },
-        {
-          "File": "motion/walk 2b.motion3.json"
-        }
-      ]
-    }
+    ]
   },
   "Groups": [
     {

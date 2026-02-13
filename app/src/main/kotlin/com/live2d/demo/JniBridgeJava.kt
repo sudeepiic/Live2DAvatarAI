@@ -15,6 +15,8 @@ object JniBridgeJava {
     @JvmStatic external fun nativeOnDrawFrame()
     @JvmStatic external fun nativeUpdateParameters(mouthOpenY: Float, mouthForm: Float, bodyAngleX: Float, eyeOpen: Float, browY: Float)
     @JvmStatic external fun nativeSetIdleEnabled(enabled: Boolean)
+    @JvmStatic external fun nativeStartMotion(group: String, priority: Int)
+    @JvmStatic external fun nativeSetExpression(name: String)
     @JvmStatic external fun nativeOnTouchesBegan(pointX: Float, pointY: Float)
     @JvmStatic external fun nativeOnTouchesEnded(pointX: Float, pointY: Float)
     @JvmStatic external fun nativeOnTouchesMoved(pointX: Float, pointY: Float)

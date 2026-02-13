@@ -165,6 +165,38 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
+    Java_com_live2d_demo_JniBridgeJava_nativeStartMotion(JNIEnv *env, jclass type, jstring group, jint priority)
+    {
+        if (group == nullptr) return;
+        const char* groupChars = env->GetStringUTFChars(group, nullptr);
+        if (!groupChars) return;
+        LAppLive2DManager* manager = LAppLive2DManager::GetInstance();
+        for (csmUint32 i = 0; i < manager->GetModelNum(); i++) {
+            LAppModel* model = manager->GetModel(i);
+            if (model) {
+                model->StartRandomMotion(groupChars, priority);
+            }
+        }
+        env->ReleaseStringUTFChars(group, groupChars);
+    }
+
+    JNIEXPORT void JNICALL
+    Java_com_live2d_demo_JniBridgeJava_nativeSetExpression(JNIEnv *env, jclass type, jstring name)
+    {
+        if (name == nullptr) return;
+        const char* nameChars = env->GetStringUTFChars(name, nullptr);
+        if (!nameChars) return;
+        LAppLive2DManager* manager = LAppLive2DManager::GetInstance();
+        for (csmUint32 i = 0; i < manager->GetModelNum(); i++) {
+            LAppModel* model = manager->GetModel(i);
+            if (model) {
+                model->SetExpression(nameChars);
+            }
+        }
+        env->ReleaseStringUTFChars(name, nameChars);
+    }
+
+    JNIEXPORT void JNICALL
     Java_com_live2d_demo_JniBridgeJava_nativeOnTouchesBegan(JNIEnv *env, jclass type, jfloat pointX, jfloat pointY)
     {
         LAppDelegate::GetInstance()->OnTouchBegan(pointX, pointY);
