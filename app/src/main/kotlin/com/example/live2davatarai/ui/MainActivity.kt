@@ -143,6 +143,8 @@ class MainActivity : AppCompatActivity() {
 
         val fullResponse = StringBuilder()
         var isTagFound = false
+        val speakBuffer = StringBuilder()
+        var inTag = false
 
         // CRITICAL: Force state to SPEAKING immediately and don't let it flicker
         runOnUiThread {
@@ -161,7 +163,15 @@ class MainActivity : AppCompatActivity() {
             history = conversationManager.getHistoryJson(),
             onTokenReceived = { token ->
                 fullResponse.append(token)
-                
+                // Stream-safe tag filtering: ignore text between [ and ]
+                for (ch in token) {
+                    when {
+                        ch == '[' -> inTag = true
+                        ch == ']' -> inTag = false
+                        !inTag -> speakBuffer.append(ch)
+                    }
+                }
+
                 if (!isTagFound && fullResponse.contains("[") && fullResponse.contains("]")) {
                     val start = fullResponse.indexOf("[")
                     val end = fullResponse.indexOf("]")
@@ -173,10 +183,28 @@ class MainActivity : AppCompatActivity() {
                     isTagFound = true
                 }
 
+                // Stream chunks to TTS with low latency but avoid micro-chunks
+                val buf = speakBuffer.toString()
+                val hasSentenceEnd = buf.contains('.') || buf.contains('!') || buf.contains('?') || buf.contains('\n')
+                if ((hasSentenceEnd && buf.length >= 20) || buf.length >= 120) {
+                    val chunk = buf.trim()
+                    if (chunk.isNotEmpty()) {
+                        ttsManager?.enqueue(chunk)
+                    }
+                    speakBuffer.clear()
+                }
             },
             onComplete = {
                 LogUtil.d("MainActivity", "AI stream complete")
-                val remaining = fullResponse.toString().trim()
+                val remainingFromTokens = speakBuffer.toString().trim()
+                val remaining = if (remainingFromTokens.isNotEmpty()) {
+                    remainingFromTokens
+                } else {
+                    fullResponse.toString().trim()
+                        .replace(Regex("\\[.*?\\]"), "")
+                        .replace(Regex("\\*.*?\\*"), "")
+                        .trim()
+                }
                     .replace(Regex("\\[.*?\\]"), "")
                     .replace(Regex("\\*.*?\\*"), "")
                     .trim()
