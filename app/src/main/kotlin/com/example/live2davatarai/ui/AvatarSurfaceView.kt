@@ -6,6 +6,7 @@ import android.opengl.GLSurfaceView
 import android.util.AttributeSet
 import com.example.live2davatarai.engine.AvatarController
 import com.live2d.demo.JniBridgeJava
+import com.example.live2davatarai.engine.AvatarState
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
