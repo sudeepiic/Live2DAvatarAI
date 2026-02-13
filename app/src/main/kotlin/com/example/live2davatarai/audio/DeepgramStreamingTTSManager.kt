@@ -331,7 +331,7 @@ class DeepgramStreamingTTSManager(
         val socket = webSocket
         if (!isConnected || socket == null) {
             pendingSpeakText = text
-            if (!isConnecting) connect()
+            if (!isConnecting && webSocket == null) connect()
             return
         }
         sendToWs(text)
@@ -351,10 +351,14 @@ class DeepgramStreamingTTSManager(
             if (!ok) {
                 LogUtil.w(TAG, "Speak send failed, queueing")
                 offerPendingText(text)
+                pendingSpeakText = text
+                if (!isConnecting && webSocket == null) connect()
             }
         } catch (e: Exception) {
             LogUtil.e(TAG, "Send Error: ${e.message}")
             offerPendingText(text)
+            pendingSpeakText = text
+            if (!isConnecting && webSocket == null) connect()
         }
     }
 
@@ -377,10 +381,12 @@ class DeepgramStreamingTTSManager(
             if (!ok) {
                 LogUtil.w(TAG, "Flush send failed, retry later")
                 pendingFlush = true
+                if (!isConnecting && webSocket == null) connect()
             }
         } catch (e: Exception) {
             LogUtil.e(TAG, "Flush Error: ${e.message}")
             pendingFlush = true
+            if (!isConnecting && webSocket == null) connect()
         }
     }
 

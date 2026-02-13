@@ -72,10 +72,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             // Stop any ongoing speech immediately to prevent self-hearing (bleeding)
             ttsManager?.stop()
-            
-            // Pre-warm the TTS connection
-            ttsManager?.connect()
-            
+
             speechInputManager?.startListening()
             avatarController.updateState(AvatarState.LISTENING)
             binding.statusText.text = "Listening..."
