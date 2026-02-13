@@ -70,6 +70,7 @@ class DeepgramStreamingTTSManager(
     private val tEndStreamMs = AtomicLong(0)
     private val tStartStreamMs = AtomicLong(0)
     private val tFirstSpeakMs = AtomicLong(0)
+    private var wsRetryCount = 0
 
     companion object {
         private const val TAG = "DeepgramTTS"
@@ -296,7 +297,10 @@ class DeepgramStreamingTTSManager(
                 isConnected = false
                 isConnecting = false
                 this@DeepgramStreamingTTSManager.webSocket = null
-                finishSessionIfActive()
+                val retrying = maybeRetryWs("onFailure")
+                if (!retrying) {
+                    finishSessionIfActive()
+                }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -304,6 +308,7 @@ class DeepgramStreamingTTSManager(
                 isConnected = false
                 isConnecting = false
                 this@DeepgramStreamingTTSManager.webSocket = null
+                maybeRetryWs("onClosed:$code")
             }
         })
     }
@@ -335,6 +340,7 @@ class DeepgramStreamingTTSManager(
         tEndStreamMs.set(0)
         tStartStreamMs.set(System.currentTimeMillis())
         tFirstSpeakMs.set(0)
+        wsRetryCount = 0
         synchronized(audioBuffer) {
             audioBuffer.reset()
         }
@@ -364,6 +370,7 @@ class DeepgramStreamingTTSManager(
             if (isConnected && webSocket != null) {
                 sendToWs(text)
             } else {
+                lastSpeakText = text
                 offerPendingText(text)
                 if (!isConnecting && webSocket == null) connect()
             }
@@ -683,6 +690,19 @@ class DeepgramStreamingTTSManager(
             pendingTextQueue.poll()
             pendingTextQueue.offer(text)
         }
+    }
+
+    private fun maybeRetryWs(reason: String): Boolean {
+        if (!isSessionActive) return false
+        if (totalAudioBytes.get() > 0L) return false
+        if (wsRetryCount >= 2) return false
+        val text = lastSpeakText ?: pendingSpeakText ?: pendingTextQueue.peek() ?: return false
+        wsRetryCount++
+        LogUtil.w(TAG, "Retry WS ($wsRetryCount) reason=$reason")
+        offerPendingText(text)
+        pendingFlush = true
+        if (!isConnecting) connect()
+        return true
     }
 
     // Single-speak mode: no sentence queue here
