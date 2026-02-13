@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
             audioAnalyzer = AudioAnalyzer { amplitude -> avatarController.setSpeechAmplitude(amplitude) }
             audioAnalyzer?.start(ttsManager?.getAudioSessionId() ?: 0)
             
-            speechInputManager = SpeechInputManager(this,
+            speechInputManager = SpeechInputManager(this, deepgramApiKey,
                 onPartialResult = { partial -> runOnUiThread { binding.statusText.text = "Listening: $partial" } },
                 onFinalResult = { final ->
                     // Stop TTS when user speaks
