@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -22,6 +23,8 @@ import com.example.live2davatarai.util.LogUtil
 import com.live2d.demo.JniBridgeJava
 
 class MainActivity : AppCompatActivity() {
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var activeRequestId: Long = 0L
     private lateinit var binding: ActivityMainBinding
     private var speechInputManager: SpeechInputManager? = null
     private var ttsManager: DeepgramStreamingTTSManager? = null
@@ -141,10 +144,23 @@ class MainActivity : AppCompatActivity() {
         }
         conversationManager.addUserMessage(input)
 
+        if (aiClient == null) {
+            runOnUiThread {
+                Toast.makeText(this, "AI client not initialized", Toast.LENGTH_SHORT).show()
+                avatarController.updateState(AvatarState.IDLE)
+                binding.statusText.text = "Idle"
+            }
+            return
+        }
+
+        val requestId = SystemClock.uptimeMillis()
+        activeRequestId = requestId
         val fullResponse = StringBuilder()
         var isTagFound = false
         val speakBuffer = StringBuilder()
         var inTag = false
+        var gotAnyToken = false
+        var lastTokenTimeMs = SystemClock.uptimeMillis()
 
         // CRITICAL: Force state to SPEAKING immediately and don't let it flicker
         runOnUiThread {
@@ -158,10 +174,43 @@ class MainActivity : AppCompatActivity() {
         audioAnalyzer?.start(ttsManager?.getAudioSessionId() ?: 0)
 
         LogUtil.d("MainActivity", "Starting AI stream")
+        val watchdog = object : Runnable {
+            override fun run() {
+                if (activeRequestId != requestId) return
+                val now = SystemClock.uptimeMillis()
+                val idleMs = now - lastTokenTimeMs
+                if (!gotAnyToken && idleMs > 6000L) {
+                    LogUtil.w("MainActivity", "AI stream timeout: no tokens")
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "AI timeout", Toast.LENGTH_SHORT).show()
+                        avatarController.updateState(AvatarState.IDLE)
+                        binding.statusText.text = "Idle"
+                    }
+                    ttsManager?.endStream()
+                    activeRequestId = 0L
+                    return
+                }
+                if (gotAnyToken && idleMs > 8000L) {
+                    LogUtil.w("MainActivity", "AI stream stalled: no new tokens")
+                    runOnUiThread {
+                        avatarController.updateState(AvatarState.IDLE)
+                        binding.statusText.text = "Idle"
+                    }
+                    ttsManager?.endStream()
+                    activeRequestId = 0L
+                    return
+                }
+                mainHandler.postDelayed(this, 1000L)
+            }
+        }
+        mainHandler.postDelayed(watchdog, 1000L)
+
         aiClient?.streamResponse(
             systemInstruction = conversationManager.systemInstruction,
             history = conversationManager.getHistoryJson(),
             onTokenReceived = { token ->
+                gotAnyToken = true
+                lastTokenTimeMs = SystemClock.uptimeMillis()
                 fullResponse.append(token)
                 // Stream-safe tag filtering: ignore text between [ and ]
                 for (ch in token) {
@@ -196,6 +245,7 @@ class MainActivity : AppCompatActivity() {
             },
             onComplete = {
                 LogUtil.d("MainActivity", "AI stream complete")
+                activeRequestId = 0L
                 val remaining = speakBuffer.toString().trim()
                     .replace(Regex("\\[.*?\\]"), "")
                     .replace(Regex("\\*.*?\\*"), "")
@@ -212,6 +262,7 @@ class MainActivity : AppCompatActivity() {
                 conversationManager.addModelMessage(fullResponse.toString())
             },
             onError = { error ->
+                activeRequestId = 0L
                 runOnUiThread {
                     Toast.makeText(this, "AI Error: ${error.message}", Toast.LENGTH_SHORT).show()
                     avatarController.updateState(AvatarState.IDLE)
