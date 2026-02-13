@@ -70,8 +70,6 @@ class DeepgramStreamingTTSManager(
     private val tEndStreamMs = AtomicLong(0)
     private val tStartStreamMs = AtomicLong(0)
     private val tFirstSpeakMs = AtomicLong(0)
-    private val tStartStreamMs = AtomicLong(0)
-    private val tFirstSpeakMs = AtomicLong(0)
 
     companion object {
         private const val TAG = "DeepgramTTS"
