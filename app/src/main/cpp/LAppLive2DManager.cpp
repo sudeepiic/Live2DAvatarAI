@@ -150,20 +150,27 @@ void LAppLive2DManager::OnTap(csmFloat32 x, csmFloat32 y)
             adjustedY = y / aspectRatio;
         }
 
-        if (model->HitTest(HitAreaNameHead, adjustedX, adjustedY))
+        bool hitHead = model->HitTest(HitAreaNameHead, adjustedX, adjustedY);
+        bool hitBody = model->HitTest(HitAreaNameBody, adjustedX, adjustedY);
+        if (hitHead)
         {
             if (DebugLogEnable)
             {
                 LAppPal::PrintLogLn("[APP]hit area: [%s]", HitAreaNameHead);
             }
-            model->SetRandomExpression();
+            model->StartRandomMotion(MotionGroupFlickHead, PriorityNormal, FinishedMotion, BeganMotion);
         }
-        else if (model->HitTest(HitAreaNameBody, adjustedX, adjustedY))
+        else if (hitBody)
         {
             if (DebugLogEnable)
             {
                 LAppPal::PrintLogLn("[APP]hit area: [%s]", HitAreaNameBody);
             }
+            model->StartRandomMotion(MotionGroupTapBody, PriorityNormal, FinishedMotion, BeganMotion);
+        }
+        else
+        {
+            // Miara has no hit areas defined; play tap motion by default.
             model->StartRandomMotion(MotionGroupTapBody, PriorityNormal, FinishedMotion, BeganMotion);
         }
     }
