@@ -65,6 +65,9 @@ class DeepgramStreamingTTSManager(
     @Volatile private var pendingClose = false
     @Volatile private var playbackThread: Thread? = null
     private val bufferedBytes = AtomicLong(0)
+    private val tFirstAudioMs = AtomicLong(0)
+    private val tFirstPlayMs = AtomicLong(0)
+    private val tEndStreamMs = AtomicLong(0)
 
     companion object {
         private const val TAG = "DeepgramTTS"
@@ -165,6 +168,12 @@ class DeepgramStreamingTTSManager(
                 val data = bytes.toByteArray()
                 if (data.isNotEmpty()) {
                     lastAudioTimeMs.set(System.currentTimeMillis())
+                    if (tFirstAudioMs.compareAndSet(0, System.currentTimeMillis())) {
+                        val end = tEndStreamMs.get()
+                        if (end > 0) {
+                            LogUtil.d(TAG, "Latency: endStream->firstAudio=${tFirstAudioMs.get() - end}ms")
+                        }
+                    }
                     totalAudioBytes.addAndGet(data.size.toLong())
                     LogUtil.d(TAG, "WS audio bytes=${data.size} total=${totalAudioBytes.get()}")
                     if (STREAMING_PLAYBACK) {
@@ -176,6 +185,12 @@ class DeepgramStreamingTTSManager(
                             }
                             audioTrack?.play()
                             firstChunkPlayed = true
+                            if (tFirstPlayMs.compareAndSet(0, System.currentTimeMillis())) {
+                                val end = tEndStreamMs.get()
+                                if (end > 0) {
+                                    LogUtil.d(TAG, "Latency: endStream->firstPlay=${tFirstPlayMs.get() - end}ms")
+                                }
+                            }
                         }
                         offerAudio(data)
                     } else {
@@ -204,6 +219,12 @@ class DeepgramStreamingTTSManager(
                             val data = Base64.decode(b64, Base64.DEFAULT)
                             if (data.isNotEmpty()) {
                                 lastAudioTimeMs.set(System.currentTimeMillis())
+                                if (tFirstAudioMs.compareAndSet(0, System.currentTimeMillis())) {
+                                    val end = tEndStreamMs.get()
+                                    if (end > 0) {
+                                        LogUtil.d(TAG, "Latency: endStream->firstAudio=${tFirstAudioMs.get() - end}ms")
+                                    }
+                                }
                                 totalAudioBytes.addAndGet(data.size.toLong())
                                 LogUtil.d(TAG, "WS audio(b64) bytes=${data.size} total=${totalAudioBytes.get()}")
                                 if (STREAMING_PLAYBACK) {
@@ -215,6 +236,12 @@ class DeepgramStreamingTTSManager(
                                         }
                                         audioTrack?.play()
                                         firstChunkPlayed = true
+                                        if (tFirstPlayMs.compareAndSet(0, System.currentTimeMillis())) {
+                                            val end = tEndStreamMs.get()
+                                            if (end > 0) {
+                                                LogUtil.d(TAG, "Latency: endStream->firstPlay=${tFirstPlayMs.get() - end}ms")
+                                            }
+                                        }
                                     }
                                     offerAudio(data)
                                 } else {
@@ -269,6 +296,9 @@ class DeepgramStreamingTTSManager(
         bufferedBytes.set(0)
         firstChunkPlayed = false
         pendingClose = false
+        tFirstAudioMs.set(0)
+        tFirstPlayMs.set(0)
+        tEndStreamMs.set(0)
         synchronized(audioBuffer) {
             audioBuffer.reset()
         }
@@ -326,6 +356,7 @@ class DeepgramStreamingTTSManager(
     fun endStream() {
         LogUtil.d(TAG, "endStream()")
         isTextFinished = true
+        tEndStreamMs.compareAndSet(0, System.currentTimeMillis())
         pendingClose = true
         if (isConnected) {
             sendFlush()
