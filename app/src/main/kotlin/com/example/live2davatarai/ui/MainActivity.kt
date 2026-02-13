@@ -163,6 +163,7 @@ class MainActivity : AppCompatActivity() {
         var gotAnyToken = false
         var lastTokenTimeMs = SystemClock.uptimeMillis()
         var lastUiUpdateMs = 0L
+        var firstChunkSent = false
 
         // CRITICAL: Force state to SPEAKING immediately and don't let it flicker
         runOnUiThread {
@@ -237,7 +238,14 @@ class MainActivity : AppCompatActivity() {
                 // Stream chunks to TTS with low latency but avoid micro-chunks
                 val buf = speakBuffer.toString()
                 val hasSentenceEnd = buf.contains('.') || buf.contains('!') || buf.contains('?') || buf.contains('\n')
-                if ((hasSentenceEnd && buf.length >= 20) || buf.length >= 120) {
+                if (!firstChunkSent && (hasSentenceEnd || buf.length >= 8)) {
+                    val chunk = buf.trim()
+                    if (chunk.isNotEmpty()) {
+                        ttsManager?.enqueue(chunk)
+                        firstChunkSent = true
+                    }
+                    speakBuffer.clear()
+                } else if ((hasSentenceEnd && buf.length >= 20) || buf.length >= 120) {
                     val chunk = buf.trim()
                     if (chunk.isNotEmpty()) {
                         ttsManager?.enqueue(chunk)
