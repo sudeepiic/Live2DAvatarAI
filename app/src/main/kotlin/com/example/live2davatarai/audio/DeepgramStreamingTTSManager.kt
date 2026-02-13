@@ -2,9 +2,12 @@ package com.example.live2davatarai.audio
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.AudioFocusRequest
+import android.os.Build
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.AudioDeviceInfo
 import okhttp3.*
 import okio.ByteString
 import org.json.JSONObject
@@ -48,19 +51,27 @@ class DeepgramStreamingTTSManager(
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var prevAudioMode: Int? = null
     private var prevSpeakerOn: Boolean? = null
+    private var prevStreamVolume: Int? = null
+    private var focusRequest: AudioFocusRequest? = null
+    private val totalAudioBytes = AtomicLong(0)
     private val sessionCounter = AtomicInteger(0)
     @Volatile private var currentSessionId = 0
     @Volatile private var playedBuffer = false
     @Volatile private var isSessionActive = false
     @Volatile private var isTextFinished = false
     @Volatile private var isConnected = false
+    @Volatile private var receivedFlush = false
+    @Volatile private var firstChunkPlayed = false
+    @Volatile private var pendingClose = false
     @Volatile private var playbackThread: Thread? = null
+    private val bufferedBytes = AtomicLong(0)
 
     companion object {
         private const val TAG = "DeepgramTTS"
-        private const val SAMPLE_RATE = 16000
+        private const val SAMPLE_RATE = 24000
         private const val MODEL = "aura-asteria-en"
         private const val WS_URL = "wss://api.deepgram.com/v1/speak?model=$MODEL&encoding=linear16&sample_rate=$SAMPLE_RATE&container=none"
+        private const val STREAMING_PLAYBACK = true
     }
 
     init {
@@ -71,7 +82,7 @@ class DeepgramStreamingTTSManager(
         val minBuf = AudioTrack.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val bufSize = (minBuf * 4).coerceAtLeast(131072)
 
-        return AudioTrack.Builder()
+        val track = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -86,6 +97,19 @@ class DeepgramStreamingTTSManager(
             .build().apply {
                 setVolume(AudioTrack.getMaxVolume())
             }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            val speaker = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            if (speaker != null) {
+                val ok = track.setPreferredDevice(speaker)
+                LogUtil.d(TAG, "Preferred speaker device set=$ok")
+            } else {
+                LogUtil.d(TAG, "Preferred speaker device not found")
+            }
+        }
+        
+        return track
     }
 
     fun connect() {
@@ -115,6 +139,14 @@ class DeepgramStreamingTTSManager(
                 LogUtil.d(TAG, "WebSocket OPEN")
                 isConnected = true
                 isConnecting = false
+                if (isSessionActive && STREAMING_PLAYBACK) {
+                    forceSpeakerRoute(true)
+                    if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+                        try { audioTrack?.release() } catch (_: Exception) {}
+                        audioTrack = createAudioTrack()
+                    }
+                    audioTrack?.play()
+                }
                 while (pendingTextQueue.isNotEmpty()) {
                     pendingTextQueue.poll()?.let { sendToWs(it) }
                 }
@@ -133,8 +165,23 @@ class DeepgramStreamingTTSManager(
                 val data = bytes.toByteArray()
                 if (data.isNotEmpty()) {
                     lastAudioTimeMs.set(System.currentTimeMillis())
-                    synchronized(audioBuffer) {
-                        audioBuffer.write(data)
+                    totalAudioBytes.addAndGet(data.size.toLong())
+                    LogUtil.d(TAG, "WS audio bytes=${data.size} total=${totalAudioBytes.get()}")
+                    if (STREAMING_PLAYBACK) {
+                        if (!firstChunkPlayed) {
+                            forceSpeakerRoute(true)
+                            if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+                                try { audioTrack?.release() } catch (_: Exception) {}
+                                audioTrack = createAudioTrack()
+                            }
+                            audioTrack?.play()
+                            firstChunkPlayed = true
+                        }
+                        offerAudio(data)
+                    } else {
+                        synchronized(audioBuffer) {
+                            audioBuffer.write(data)
+                        }
                     }
                 }
             }
@@ -144,14 +191,36 @@ class DeepgramStreamingTTSManager(
                 if (!acceptAudio) return
                 try {
                     val json = JSONObject(text)
+                    val type = json.optString("type")
+                    if (type == "Flushed") {
+                        receivedFlush = true
+                        if (pendingClose && STREAMING_PLAYBACK) {
+                            LogUtil.d(TAG, "Flush received, will close after drain")
+                        }
+                    }
                     if (json.has("audio")) {
                         val b64 = json.optString("audio", "")
                         if (b64.isNotEmpty()) {
                             val data = Base64.decode(b64, Base64.DEFAULT)
                             if (data.isNotEmpty()) {
                                 lastAudioTimeMs.set(System.currentTimeMillis())
-                                synchronized(audioBuffer) {
-                                    audioBuffer.write(data)
+                                totalAudioBytes.addAndGet(data.size.toLong())
+                                LogUtil.d(TAG, "WS audio(b64) bytes=${data.size} total=${totalAudioBytes.get()}")
+                                if (STREAMING_PLAYBACK) {
+                                    if (!firstChunkPlayed) {
+                                        forceSpeakerRoute(true)
+                                        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+                                            try { audioTrack?.release() } catch (_: Exception) {}
+                                            audioTrack = createAudioTrack()
+                                        }
+                                        audioTrack?.play()
+                                        firstChunkPlayed = true
+                                    }
+                                    offerAudio(data)
+                                } else {
+                                    synchronized(audioBuffer) {
+                                        audioBuffer.write(data)
+                                    }
                                 }
                             }
                         }
@@ -181,6 +250,8 @@ class DeepgramStreamingTTSManager(
     fun startStream() {
         LogUtil.d(TAG, "--- Session Start ---")
         stopPlayback()
+        // Best practice: one websocket per conversation
+        disconnect()
         
         isSessionActive = true
         isTextFinished = false
@@ -193,6 +264,11 @@ class DeepgramStreamingTTSManager(
         acceptAudio = true
         pendingSpeakText = null
         playedBuffer = false
+        receivedFlush = false
+        totalAudioBytes.set(0)
+        bufferedBytes.set(0)
+        firstChunkPlayed = false
+        pendingClose = false
         synchronized(audioBuffer) {
             audioBuffer.reset()
         }
@@ -201,6 +277,15 @@ class DeepgramStreamingTTSManager(
 
         forceSpeakerRoute(true)
         audioTrack = createAudioTrack()
+        // Pre-roll a tiny silence to open the audio pipeline and avoid first-utterance drop.
+        if (STREAMING_PLAYBACK && audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
+            try {
+                audioTrack?.play()
+                val preRollSamples = SAMPLE_RATE / 50 // 20ms
+                val preRoll = ByteArray(preRollSamples * 2)
+                audioTrack?.write(preRoll, 0, preRoll.size)
+            } catch (_: Exception) {}
+        }
         
         connect()
         startPlaybackThread()
@@ -241,6 +326,7 @@ class DeepgramStreamingTTSManager(
     fun endStream() {
         LogUtil.d(TAG, "endStream()")
         isTextFinished = true
+        pendingClose = true
         if (isConnected) {
             sendFlush()
         } else {
@@ -262,6 +348,19 @@ class DeepgramStreamingTTSManager(
         }
     }
 
+    private fun sendClose() {
+        try {
+            webSocket?.send(JSONObject().apply { put("type", "Close") }.toString())
+        } catch (_: Exception) {}
+        try {
+            webSocket?.close(1000, "Done")
+        } catch (_: Exception) {}
+        isConnected = false
+        isConnecting = false
+        webSocket = null
+        LogUtil.d(TAG, "WebSocket close sent")
+    }
+
     private fun startPlaybackThread() {
         val sessionId = currentSessionId
         playbackThread = Thread {
@@ -273,19 +372,70 @@ class DeepgramStreamingTTSManager(
                     val idleSpeak = now - lastSpeakTimeMs.get()
                     val timeout = if (isTextFinished) 8000L else 20000L
 
-                    if (isTextFinished && !playedBuffer && lastAudio > 0 && idleAudio > 200) {
-                        val bytes = synchronized(audioBuffer) { audioBuffer.toByteArray() }
-                        if (bytes.isNotEmpty()) {
-                            try {
+                    if (STREAMING_PLAYBACK) {
+                        val chunk = audioQueue.poll(10, TimeUnit.MILLISECONDS)
+                        if (chunk != null) {
+                            if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+                                LogUtil.w(TAG, "AudioTrack not initialized, recreating")
+                                try { audioTrack?.release() } catch (_: Exception) {}
+                                audioTrack = createAudioTrack()
+                            }
+                            if (audioTrack?.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                                forceSpeakerRoute(true)
                                 audioTrack?.play()
-                                var offset = 0
-                                while (offset < bytes.size) {
-                                    val written = audioTrack?.write(bytes, offset, bytes.size - offset) ?: 0
-                                    if (written <= 0) break
-                                    offset += written
-                                }
-                            } catch (_: Exception) {}
-                            playedBuffer = true
+                                LogUtil.d(TAG, "Streaming play()")
+                            }
+                            var written = audioTrack?.write(chunk, 0, chunk.size) ?: 0
+                            if (written <= 0) {
+                                LogUtil.w(TAG, "Streaming write failed, retrying track")
+                                try { audioTrack?.pause() } catch (_: Exception) {}
+                                try { audioTrack?.flush() } catch (_: Exception) {}
+                                try { audioTrack?.release() } catch (_: Exception) {}
+                                audioTrack = createAudioTrack()
+                                forceSpeakerRoute(true)
+                                audioTrack?.play()
+                                written = audioTrack?.write(chunk, 0, chunk.size) ?: 0
+                            }
+                            if (written > 0) {
+                                bufferedBytes.addAndGet(-written.toLong())
+                                LogUtil.d(TAG, "Streaming write=${written} buffered=${bufferedBytes.get()}")
+                            }
+                        }
+                    } else {
+                        if (isTextFinished && !playedBuffer && lastAudio > 0 && receivedFlush && idleAudio > 800) {
+                            val bytes = synchronized(audioBuffer) { audioBuffer.toByteArray() }
+                            if (bytes.isNotEmpty()) {
+                                try {
+                                    val stats = pcmStats(bytes)
+                                    LogUtil.d(TAG, "Playback start bytes=${bytes.size} durMs=${stats.durationMs} max=${stats.maxAbs} rms=${stats.rms} state=${audioTrack?.state} playState=${audioTrack?.playState}")
+                                    forceSpeakerRoute(true)
+                                    if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+                                        LogUtil.w(TAG, "AudioTrack not initialized, recreating")
+                                        try { audioTrack?.release() } catch (_: Exception) {}
+                                        audioTrack = createAudioTrack()
+                                    }
+                                    var offset = 0
+                                    var attempts = 0
+                                    while (attempts < 2) {
+                                        audioTrack?.play()
+                                        try { Thread.sleep(150) } catch (_: Exception) {}
+                                        while (offset < bytes.size) {
+                                            val written = audioTrack?.write(bytes, offset, bytes.size - offset) ?: 0
+                                            LogUtil.d(TAG, "Playback write=${written}")
+                                            if (written <= 0) break
+                                            offset += written
+                                        }
+                                        if (offset >= bytes.size) break
+                                        attempts += 1
+                                        LogUtil.w(TAG, "Playback retry attempt=$attempts offset=$offset")
+                                        try { audioTrack?.pause() } catch (_: Exception) {}
+                                        try { audioTrack?.flush() } catch (_: Exception) {}
+                                        try { audioTrack?.release() } catch (_: Exception) {}
+                                        audioTrack = createAudioTrack()
+                                    }
+                                } catch (_: Exception) {}
+                                playedBuffer = true
+                            }
                         }
                     }
 
@@ -310,10 +460,15 @@ class DeepgramStreamingTTSManager(
                         }
                     }
 
-                    if (lastAudio > 0 && idleAudio > timeout && idleSpeak > timeout && playedBuffer) break
+                    val shouldEndStreaming = STREAMING_PLAYBACK && isTextFinished && receivedFlush && audioQueue.isEmpty() && idleAudio > 500 && totalAudioBytes.get() > 0
+                    if (lastAudio > 0 && idleAudio > timeout && idleSpeak > timeout && (playedBuffer || shouldEndStreaming)) break
                     if (isTextFinished && lastAudio == 0L && idleSpeak > timeout) break
+                    if (STREAMING_PLAYBACK && pendingClose && receivedFlush && audioQueue.isEmpty() && idleAudio > 500) {
+                        sendClose()
+                        pendingClose = false
+                    }
 
-                    Thread.sleep(50)
+                    Thread.sleep(5)
                 } catch (e: Exception) {
                     break
                 }
@@ -428,6 +583,7 @@ class DeepgramStreamingTTSManager(
             audioQueue.poll()
             audioQueue.offer(data)
         }
+        bufferedBytes.addAndGet(data.size.toLong())
     }
 
     private fun offerPendingText(text: String) {
@@ -504,14 +660,71 @@ class DeepgramStreamingTTSManager(
             if (enable) {
                 if (prevAudioMode == null) prevAudioMode = audioManager.mode
                 if (prevSpeakerOn == null) prevSpeakerOn = audioManager.isSpeakerphoneOn
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                if (prevStreamVolume == null) {
+                    prevStreamVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                }
+                audioManager.mode = AudioManager.MODE_NORMAL
+                try {
+                    audioManager.isBluetoothScoOn = false
+                    audioManager.stopBluetoothSco()
+                } catch (_: Exception) {}
                 audioManager.isSpeakerphoneOn = true
+                val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, max, 0)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .build()
+                        )
+                        .build()
+                    focusRequest = req
+                    audioManager.requestAudioFocus(req)
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+                }
             } else {
                 prevAudioMode?.let { audioManager.mode = it }
                 prevSpeakerOn?.let { audioManager.isSpeakerphoneOn = it }
+                prevStreamVolume?.let { audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager.abandonAudioFocus(null)
+                }
                 prevAudioMode = null
                 prevSpeakerOn = null
+                prevStreamVolume = null
+                focusRequest = null
             }
         } catch (_: Exception) {}
     }
+
+    private data class PcmStats(val maxAbs: Int, val rms: Int, val durationMs: Long)
+
+    private fun pcmStats(bytes: ByteArray): PcmStats {
+        if (bytes.size < 2) return PcmStats(0, 0, 0)
+        var maxAbs = 0
+        var sumSquares = 0.0
+        val sampleCount = bytes.size / 2
+        var i = 0
+        while (i + 1 < bytes.size) {
+            val lo = bytes[i].toInt() and 0xFF
+            val hi = bytes[i + 1].toInt()
+            val sample = (hi shl 8) or lo
+            val abs = kotlin.math.abs(sample)
+            if (abs > maxAbs) maxAbs = abs
+            sumSquares += (sample * sample).toDouble()
+            i += 2
+        }
+        val rms = kotlin.math.sqrt(sumSquares / sampleCount).toInt()
+        val durationMs = (sampleCount * 1000L) / SAMPLE_RATE
+        return PcmStats(maxAbs, rms, durationMs)
+    }
+
+    // streaming playback uses raw PCM bytes; no gain or diagnostic tone
 }
