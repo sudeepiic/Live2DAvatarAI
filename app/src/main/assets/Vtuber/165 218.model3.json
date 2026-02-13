@@ -1,0 +1,122 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "165 218.moc3",
+    "Textures": [
+      "165 218.4096/texture_00.png",
+      "165 218.4096/texture_01.png",
+      "165 218.4096/texture_02.png",
+      "165 218.4096/texture_03.png"
+    ],
+    "Physics": "165 218.physics3.json",
+    "DisplayInfo": "165 218.cdi3.json",
+    "Expressions": [
+      {
+        "Name": "02 dance 2b.exp3",
+        "File": "exp/02 dance 2b.exp3.json"
+      },
+      {
+        "Name": "ACC 1 [WAVY MOUTH].exp3",
+        "File": "exp/ACC 1 [WAVY MOUTH].exp3.json"
+      },
+      {
+        "Name": "ACC 2 [BRB].exp3",
+        "File": "exp/ACC 2 [BRB].exp3.json"
+      },
+      {
+        "Name": "EXP 1 [LOVE].exp3",
+        "File": "exp/EXP 1 [LOVE].exp3.json"
+      },
+      {
+        "Name": "EXP 10 [YANDERE].exp3",
+        "File": "exp/EXP 10 [YANDERE].exp3.json"
+      },
+      {
+        "Name": "EXP 2 [EXCITED].exp3",
+        "File": "exp/EXP 2 [EXCITED].exp3.json"
+      },
+      {
+        "Name": "EXP 3 [SAD].exp3",
+        "File": "exp/EXP 3 [SAD].exp3.json"
+      },
+      {
+        "Name": "EXP 4 [POUT].exp3",
+        "File": "exp/EXP 4 [POUT].exp3.json"
+      },
+      {
+        "Name": "EXP 5 [ANGRY].exp3",
+        "File": "exp/EXP 5 [ANGRY].exp3.json"
+      },
+      {
+        "Name": "EXP 6 [SHOCKED].exp3",
+        "File": "exp/EXP 6 [SHOCKED].exp3.json"
+      },
+      {
+        "Name": "EXP 7 [CONFUSED].exp3",
+        "File": "exp/EXP 7 [CONFUSED].exp3.json"
+      },
+      {
+        "Name": "EXP 8 [SCARED].exp3",
+        "File": "exp/EXP 8 [SCARED].exp3.json"
+      },
+      {
+        "Name": "EXP 9 [BLUSH].exp3",
+        "File": "exp/EXP 9 [BLUSH].exp3.json"
+      },
+      {
+        "Name": "chibi.exp3",
+        "File": "exp/chibi.exp3.json"
+      },
+      {
+        "Name": "idle.exp3",
+        "File": "exp/idle.exp3.json"
+      },
+      {
+        "Name": "jump 2b.exp3",
+        "File": "exp/jump 2b.exp3.json"
+      },
+      {
+        "Name": "normal jump.exp3",
+        "File": "exp/normal jump.exp3.json"
+      },
+      {
+        "Name": "walk 2b.exp3",
+        "File": "exp/walk 2b.exp3.json"
+      }
+    ],
+    "Motions": {
+      "Idle": [
+        {
+          "File": "motion/02 dance 2b.motion3.json"
+        },
+        {
+          "File": "motion/idle.motion3.json"
+        },
+        {
+          "File": "motion/jump 2b.motion3.json"
+        },
+        {
+          "File": "motion/normal jump.motion3.json"
+        },
+        {
+          "File": "motion/walk 2b.motion3.json"
+        }
+      ]
+    }
+  },
+  "Groups": [
+    {
+      "Target": "Parameter",
+      "Name": "EyeBlink",
+      "Ids": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen"
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Name": "LipSync",
+      "Ids": []
+    }
+  ]
+}

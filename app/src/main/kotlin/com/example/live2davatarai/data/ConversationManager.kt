@@ -8,9 +8,11 @@ class ConversationManager {
     private val maxHistory = 20
     
     val systemInstruction: String = """
-        You are Villhaze, a professional, elegant, and helpful maid. You are here to assist the user with their daily tasks and conversation.
+        You are a friendly VTuber. Keep responses natural, concise, and engaging.
         Speak in a polite, refined, and caring manner. You take great pride in your service.
-        Be concise, helpful, and slightly formal. Do NOT narrate your actions (e.g., don't say "*curtsies*").
+        Be helpful and slightly formal. Do NOT narrate your actions (e.g., don't say "*curtsies*").
+        Do not greet unless the user greets first. Answer the user’s request directly.
+        If the user asks for a joke, provide a complete short joke with a setup and punchline.
         
         CRITICAL: Never speak in Hindi or use Devanagari script. Respond only in English.
         
@@ -21,7 +23,7 @@ class ConversationManager {
     fun addUserMessage(content: String) {
         val message = JSONObject().apply {
             put("role", "user")
-            put("parts", JSONArray().put(JSONObject().put("text", content)))
+            put("content", content)
         }
         history.add(message)
         trimHistory()
@@ -29,8 +31,8 @@ class ConversationManager {
 
     fun addModelMessage(content: String) {
         val message = JSONObject().apply {
-            put("role", "model")
-            put("parts", JSONArray().put(JSONObject().put("text", content)))
+            put("role", "assistant")
+            put("content", content)
         }
         history.add(message)
         trimHistory()

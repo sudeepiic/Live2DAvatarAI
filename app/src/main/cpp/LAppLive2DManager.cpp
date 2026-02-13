@@ -90,7 +90,7 @@ void LAppLive2DManager::ReleaseAllModel()
 void LAppLive2DManager::SetUpModel()
 {
     _modelDir.Clear();
-    _modelDir.PushBack(csmString("Miara"));
+    _modelDir.PushBack(csmString("Vtuber"));
 }
 
 LAppModel* LAppLive2DManager::GetModel(csmUint32 no) const
@@ -259,8 +259,8 @@ void LAppLive2DManager::ChangeScene(Csm::csmInt32 index)
     }
 
     // model3.jsonのパスを決定する.
-    csmString modelPath("Miara/");
-    csmString modelJsonName("miara_pro_t03.model3.json");
+    csmString modelPath("Vtuber/");
+    csmString modelJsonName("165 218.model3.json");
 
     ReleaseAllModel();
     _models.PushBack(new LAppModel());
