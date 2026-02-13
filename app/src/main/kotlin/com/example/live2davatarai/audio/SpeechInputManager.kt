@@ -12,6 +12,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import okio.ByteString.Companion.toByteString
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -155,7 +156,7 @@ class SpeechInputManager(
             while (isListening.get()) {
                 val read = audioRecord?.read(buf, 0, buf.size) ?: 0
                 if (read > 0 && isSocketOpen.get()) {
-                    webSocket?.send(ByteString.of(buf, 0, read))
+                    webSocket?.send(buf.toByteString(0, read))
                 } else {
                     SystemClock.sleep(10)
                 }
