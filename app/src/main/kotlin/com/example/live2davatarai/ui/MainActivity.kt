@@ -207,6 +207,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
         mainHandler.postDelayed(watchdog, 1000L)
+        mainHandler.postDelayed({
+            if (activeRequestId != requestId) return@postDelayed
+            if (!firstChunkSent && !gotAnyToken) {
+                // Pre-seed to mask initial silence on slow token starts.
+                ttsManager?.enqueue("Hmm.")
+                firstChunkSent = true
+            }
+        }, 600L)
 
         aiClient?.streamResponse(
             systemInstruction = conversationManager.systemInstruction,
