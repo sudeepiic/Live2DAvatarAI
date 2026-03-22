@@ -1,8 +1,8 @@
 package com.example.live2davatarai.audio
 
 import android.media.audiofx.Visualizer
-import android.util.Log
 import kotlin.math.abs
+import com.example.live2davatarai.util.LogUtil
 
 class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
     private var visualizer: Visualizer? = null
@@ -11,9 +11,10 @@ class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
         stop() // Stop any previous instance
         
         try {
-            Log.d("AudioAnalyzer", "Starting Visualizer on session $audioSessionId")
+            LogUtil.d("AudioAnalyzer", "Starting Visualizer on session $audioSessionId")
             visualizer = Visualizer(audioSessionId).apply {
-                this.captureSize = captureSize
+                val range = Visualizer.getCaptureSizeRange()
+                this.captureSize = range[1]
                 setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                     override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
                         waveform?.let {
@@ -26,9 +27,9 @@ class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
                 }, Visualizer.getMaxCaptureRate() / 2, true, false)
                 enabled = true
             }
-            Log.d("AudioAnalyzer", "Visualizer started successfully")
+            LogUtil.d("AudioAnalyzer", "Visualizer started successfully")
         } catch (e: Exception) {
-            Log.e("AudioAnalyzer", "Failed to start Visualizer: ${e.message}")
+            LogUtil.e("AudioAnalyzer", "Failed to start Visualizer: ${e.message}")
             visualizer = null
         }
     }
@@ -51,7 +52,7 @@ class AudioAnalyzer(private val onAmplitudeChanged: (Float) -> Unit) {
             visualizer?.enabled = false
             visualizer?.release()
         } catch (e: Exception) {
-            Log.e("AudioAnalyzer", "Error stopping visualizer: ${e.message}")
+            LogUtil.e("AudioAnalyzer", "Error stopping visualizer: ${e.message}")
         }
         visualizer = null
     }

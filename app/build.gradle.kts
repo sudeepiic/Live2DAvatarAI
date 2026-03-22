@@ -3,10 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.example.live2davatarai"
     compileSdk = 34
-    val localProps = java.util.Properties().apply {
+    val localProps = Properties().apply {
         val propsFile = rootProject.file("local.properties")
         if (propsFile.exists()) {
             propsFile.inputStream().use { load(it) }

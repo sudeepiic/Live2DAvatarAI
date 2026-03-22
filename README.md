@@ -11,7 +11,9 @@ An Android application that integrates a Live2D avatar with an AI conversation e
 - **/data**: Manages local memory and conversation history.
 
 ## Setup
-1. Add your OpenAI API Key in `OpenAIClient`.
+1. Add API keys to `local.properties` (keep this file uncommitted):
+   - `OPENAI_API_KEY=...`
+   - `DEEPGRAM_API_KEY=...`
 2. Place Live2D Cubism SDK libraries in `app/libs` and `app/src/main/jniLibs`.
 3. Add your Live2D model files in the `assets` folder.
 

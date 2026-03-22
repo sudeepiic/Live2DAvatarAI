@@ -3,7 +3,7 @@ package com.example.live2davatarai.audio
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.util.Log
+import com.example.live2davatarai.util.LogUtil
 import java.util.Locale
 
 class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
@@ -15,13 +15,13 @@ class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
         private set
 
     init {
-        Log.d("TTSManager", "Initializing TextToSpeech...")
+        LogUtil.d("TTSManager", "Initializing TextToSpeech...")
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                Log.d("TTSManager", "TTS Engine initialized successfully")
+                LogUtil.d("TTSManager", "TTS Engine initialized successfully")
                 val result = tts?.setLanguage(Locale.US)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e("TTSManager", "Language not supported")
+                    LogUtil.e("TTSManager", "Language not supported")
                 } else {
                     // Reset to more natural settings
                     tts?.setPitch(0.9f)
@@ -38,17 +38,17 @@ class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
                         
                         if (bestVoice != null) {
                             tts?.voice = bestVoice
-                            Log.d("TTSManager", "Selected voice: ${bestVoice.name}")
+                            LogUtil.d("TTSManager", "Selected voice")
                         }
                     } catch (e: Exception) {
-                        Log.e("TTSManager", "Voice selection failed: ${e.message}")
+                        LogUtil.e("TTSManager", "Voice selection failed: ${e.message}")
                     }
 
                     isReady = true
                     setupProgressListener()
                 }
             } else {
-                Log.e("TTSManager", "Initialization failed")
+                LogUtil.e("TTSManager", "Initialization failed")
             }
         }
     }
@@ -56,16 +56,21 @@ class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
     private fun setupProgressListener() {
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                Log.d("TTSManager", "Started speaking")
+                LogUtil.d("TTSManager", "Started speaking")
             }
 
             override fun onDone(utteranceId: String?) {
-                Log.d("TTSManager", "Finished speaking")
+                LogUtil.d("TTSManager", "Finished speaking")
                 onSpeakingFinished()
             }
 
+            @Deprecated("Deprecated in API 21")
             override fun onError(utteranceId: String?) {
-                Log.e("TTSManager", "Error speaking")
+                onError(utteranceId, TextToSpeech.ERROR)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                LogUtil.e("TTSManager", "Error speaking")
                 onSpeakingFinished()
             }
         })
@@ -73,17 +78,17 @@ class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
 
     fun speak(text: String) {
         if (!isReady) {
-            Log.e("TTSManager", "TTS not ready yet")
+            LogUtil.e("TTSManager", "TTS not ready yet")
             return
         }
         if (text.isNotBlank()) {
-            Log.d("TTSManager", "Attempting to speak: $text")
+            LogUtil.d("TTSManager", "Attempting to speak")
             val params = android.os.Bundle().apply {
                 putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
             }
             val result = tts?.speak(text, TextToSpeech.QUEUE_ADD, params, "utteranceId_" + System.currentTimeMillis())
             if (result == TextToSpeech.ERROR) {
-                Log.e("TTSManager", "Speak call failed with ERROR")
+                LogUtil.e("TTSManager", "Speak call failed with ERROR")
             }
         }
     }
@@ -92,7 +97,7 @@ class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
         try {
             tts?.stop()
         } catch (e: Exception) {
-            Log.e("TTSManager", "Error stopping: ${e.message}")
+            LogUtil.e("TTSManager", "Error stopping: ${e.message}")
         }
     }
 
@@ -100,7 +105,7 @@ class TTSManager(context: Context, private val onSpeakingFinished: () -> Unit) {
         try {
             tts?.shutdown()
         } catch (e: Exception) {
-            Log.e("TTSManager", "Error shutdown: ${e.message}")
+            LogUtil.e("TTSManager", "Error shutdown: ${e.message}")
         }
     }
 }
